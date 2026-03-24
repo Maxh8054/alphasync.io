@@ -1,0 +1,13 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>body{font:14px monospace;background:#111;color:#0f0}</style>
+</head>
+<body>
+<pre id="l"></pre>
+<script>
+setInterval(()=>fetch("dump.json?t="+Date.now()).then(r=>r.text()).then(t=>{l.textContent=t}),1100);
+</script>
+</body>
+</html>

